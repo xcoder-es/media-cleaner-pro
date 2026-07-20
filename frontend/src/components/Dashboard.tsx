@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Play, Pause, Square, FolderOpen, FolderOutput, Settings, Zap, Activity } from 'lucide-react';
+import { Play, Pause, Square, FolderOpen, FolderOutput, ChevronRight, ArrowUpCircle, Settings, Zap, Activity, Image } from 'lucide-react';
 import StageCard from './StageCard';
 import ProgressBar from './ProgressBar';
 import Console from './Console';
@@ -62,6 +62,9 @@ export default function Dashboard() {
   const [logs, setLogs] = useState<any[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState<'pipeline' | 'console'>('pipeline');
+  const [browsePath, setBrowsePath] = useState('/');
+  const [dirEntries, setDirEntries] = useState<{ name: string; path: string; image_count: number }[]>([]);
+  const [browsing, setBrowsing] = useState(false);
 
   // Poll status
   useEffect(() => {
@@ -92,6 +95,22 @@ export default function Dashboard() {
     }, 2000);
     return () => clearInterval(interval);
   }, []);
+
+  const loadDir = useCallback(async (path: string) => {
+    setBrowsing(true);
+    try {
+      const res = await fetch(`${API_URL}/api/browse?path=${encodeURIComponent(path)}`);
+      if (res.ok) {
+        setDirEntries(await res.json());
+        setBrowsePath(path);
+      }
+    } catch (e) {}
+    setBrowsing(false);
+  }, []);
+
+  useEffect(() => {
+    if (showSettings) loadDir(browsePath);
+  }, [showSettings]);
 
   const startJob = useCallback(async () => {
     await fetch(`${API_URL}/api/start`, {
@@ -160,19 +179,49 @@ export default function Dashboard() {
       {showSettings && (
         <div className="border-b border-mc-border bg-mc-bgCard animate-slide-up">
           <div className="max-w-7xl mx-auto px-6 py-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2 md:col-span-2">
                 <label className="text-xs font-medium text-mc-text-muted uppercase tracking-wider">Source Directory</label>
-                <div className="flex gap-2">
-                  <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg bg-mc-bgElevated border border-mc-border focus-within:border-mc-primary transition-colors">
-                    <FolderOpen className="w-4 h-4 text-mc-text-dim" />
-                    <input
-                      type="text"
-                      value={sourceDir}
-                      onChange={(e) => setSourceDir(e.target.value)}
-                      placeholder="/data/source"
-                      className="flex-1 bg-transparent text-sm outline-none placeholder:text-mc-text-dim"
-                    />
+                <div className="rounded-lg bg-mc-bgElevated border border-mc-border overflow-hidden">
+                  <div className="flex items-center gap-2 px-3 py-2 border-b border-mc-border text-sm text-mc-text-muted">
+                    <FolderOpen className="w-4 h-4 flex-shrink-0 text-mc-primary" />
+                    <span className="truncate font-mono text-xs">{sourceDir || browsePath}</span>
+                    {browsing && <span className="ml-auto text-xs animate-pulse">loading...</span>}
+                  </div>
+                  <div className="max-h-48 overflow-y-auto divide-y divide-mc-border/50">
+                    <button
+                      onClick={() => {
+                        const parent = browsePath === '/' ? '/' : browsePath.split('/').slice(0, -1).join('/') || '/';
+                        loadDir(parent);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-mc-text-muted hover:bg-mc-bgCard hover:text-mc-text transition-colors"
+                    >
+                      <ArrowUpCircle className="w-4 h-4" />
+                      <span>.. (up)</span>
+                    </button>
+                    {dirEntries.map((entry) => (
+                      <button
+                        key={entry.path}
+                        onClick={() => {
+                          setSourceDir(entry.path);
+                          loadDir(entry.path);
+                        }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-mc-bgCard ${
+                          sourceDir === entry.path ? 'bg-mc-primary/10 text-mc-primary' : 'text-mc-text'
+                        }`}
+                      >
+                        <FolderOpen className="w-4 h-4 flex-shrink-0 text-mc-accent" />
+                        <span className="truncate flex-1 text-left">{entry.name}</span>
+                        <span className="text-xs text-mc-text-dim flex items-center gap-1">
+                          <Image className="w-3 h-3" />
+                          {entry.image_count}
+                        </span>
+                        <ChevronRight className="w-3 h-3 text-mc-text-dim flex-shrink-0" />
+                      </button>
+                    ))}
+                    {!browsing && dirEntries.length === 0 && (
+                      <div className="px-3 py-6 text-center text-sm text-mc-text-dim">Empty directory</div>
+                    )}
                   </div>
                 </div>
               </div>

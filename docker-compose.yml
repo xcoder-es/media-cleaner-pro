@@ -67,6 +67,10 @@ services:
       - TEMPORAL_HOST=temporal:7233
     volumes:
       - ./data:/data
+      # Mount your media folders for processing (pick one or add more):
+      # Windows: - C:/Users/YourName/Documents/cleaned_media:/media:ro
+      # macOS:   - /Users/YourName/Documents/cleaned_media:/media:ro
+      # Linux:   - /home/YourName/Documents/cleaned_media:/media:ro
     depends_on:
       - temporal
     networks:

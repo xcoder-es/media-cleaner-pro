@@ -1,9 +1,11 @@
 use axum::{
-    extract::State,
+    extract::{Query, State},
     response::{sse::Event, Sse},
     routing::{get, post},
     Json, Router,
 };
+use serde::Deserialize;
+use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,6 +16,7 @@ use uuid::Uuid;
 use crate::{
     api::models::*,
     state::{machine::StateMachine, AppState},
+    SharedState,
 };
 
 pub fn create_routes(state: Arc<RwLock<AppState>>) -> Router {
@@ -23,8 +26,74 @@ pub fn create_routes(state: Arc<RwLock<AppState>>) -> Router {
         .route("/api/control", post(control_job))
         .route("/api/progress", get(progress_stream))
         .route("/api/logs", get(get_logs))
+        .route("/api/browse", get(browse_directory))
         .route("/health", get(health_check))
         .with_state(state)
+}
+
+#[derive(Deserialize)]
+struct BrowseParams {
+    path: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct DirEntry {
+    name: String,
+    path: String,
+    is_dir: bool,
+    image_count: usize,
+}
+
+async fn browse_directory(
+    Query(params): Query<HashMap<String, String>>,
+) -> Json<Vec<DirEntry>> {
+    use std::path::Path;
+
+    let current = params.get("path").map(|s| s.as_str()).unwrap_or("/");
+    let dir = Path::new(current);
+
+    if !dir.exists() || !dir.is_dir() {
+        return Json(Vec::new());
+    }
+
+    let mut entries = Vec::new();
+    let image_extensions = ["jpg", "jpeg", "png", "bmp", "webp", "gif", "tiff", "tif", "heic", "heif"];
+
+    match std::fs::read_dir(dir) {
+        Ok(rd) => {
+            for entry in rd.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                let path = entry.path().to_string_lossy().to_string();
+                let is_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
+
+                let image_count = if is_dir {
+                    std::fs::read_dir(entry.path())
+                        .map(|rd| {
+                            rd.flatten()
+                                .filter(|e| {
+                                    e.file_type().map(|t| t.is_file()).unwrap_or(false)
+                                        && e.path().extension()
+                                            .and_then(|e| e.to_str())
+                                            .map(|e| image_extensions.contains(&e.to_lowercase().as_str()))
+                                            .unwrap_or(false)
+                                })
+                                .count()
+                        })
+                        .unwrap_or(0)
+                } else {
+                    0
+                };
+
+                if is_dir {
+                    entries.push(DirEntry { name, path, is_dir: true, image_count });
+                }
+            }
+        }
+        Err(_) => {}
+    }
+
+    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Json(entries)
 }
 
 async fn get_status(State(state): State<Arc<RwLock<AppState>>>) -> Json<StateResponse> {
@@ -135,7 +204,7 @@ async fn health_check() -> Json<serde_json::Value> {
 }
 
 // The actual pipeline runner
-async fn run_pipeline(state: Arc<RwLock<AppState>>) {
+pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
     use crate::processing::*;
     use crate::processing::hash::{compute_sha256, compute_dhash, format_dhash};
     use crate::processing::duplicate::DuplicateDetector;

@@ -40,10 +40,5 @@ pub fn compute_dhash(img: &DynamicImage) -> u64 {
     hash
 }
 
-pub fn hamming_distance(a: u64, b: u64) -> u32 {
-    (a ^ b).count_ones()
-}
-
-pub fn format_dhash(hash: u64) -> String {
-    format!("{:016X}", hash)
-}
+pub use mc_core::hamming_distance;
+pub use mc_core::format_dhash;

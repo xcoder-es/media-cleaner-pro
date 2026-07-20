@@ -7,6 +7,12 @@ description = "MediaCleaner Pro - Advanced perceptual duplicate removal with 10-
 license = "MIT"
 repository = "https://github.com/capintobe/MediaCleaner"
 
+[workspace]
+resolver = "2"
+members = [
+    "packages/mc-core",
+]
+
 [dependencies]
 # Async runtime
 tokio = { version = "1.38", features = ["full"] }
@@ -41,6 +47,9 @@ rusqlite = { version = "0.31", features = ["bundled", "chrono", "uuid"] }
 # HTTP client (for Supabase integration)
 reqwest = { version = "0.12", features = ["json"], optional = true }
 
+# Workspace crates
+mc-core = { path = "packages/mc-core" }
+
 # Utilities
 thiserror = "1.0"
 anyhow = "1.0"
@@ -52,6 +61,7 @@ async-stream = "0.3"
 [features]
 default = []
 supabase = ["dep:reqwest"]
+cloud = []
 
 [profile.release]
 opt-level = 3

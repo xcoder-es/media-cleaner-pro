@@ -1,43 +1,9 @@
 pub mod machine;
 pub mod db;
 
+pub use mc_core::{StageInfo, StageStatus, ProcessingStats, LogMessage};
+
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StageInfo {
-    pub name: String,
-    pub description: String,
-    pub status: StageStatus,
-    pub progress: f64,
-    pub processed: usize,
-    pub total: usize,
-    pub started_at: Option<String>,
-    pub completed_at: Option<String>,
-    pub error: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum StageStatus {
-    Pending,
-    Running,
-    Completed,
-    Failed,
-    Skipped,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProcessingStats {
-    pub current_file: Option<String>,
-    pub current_dhash: Option<String>,
-    pub unique_count: usize,
-    pub duplicate_count: usize,
-    pub error_count: usize,
-    pub speed: f64, // images per second
-    pub eta_seconds: u64,
-    pub memory_mb: u64,
-    pub cpu_percent: f64,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppState {
@@ -48,14 +14,6 @@ pub struct AppState {
     pub is_paused: bool,
     pub log_messages: Vec<LogMessage>,
     pub config: crate::config::Config,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LogMessage {
-    pub timestamp: String,
-    pub level: String,
-    pub stage: String,
-    pub message: String,
 }
 
 impl AppState {
