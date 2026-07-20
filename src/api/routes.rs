@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Multipart, State},
+    extract::State,
     response::{sse::Event, Sse},
     routing::{get, post},
     Json, Router,
@@ -23,7 +23,6 @@ pub fn create_routes(state: Arc<RwLock<AppState>>) -> Router {
         .route("/api/control", post(control_job))
         .route("/api/progress", get(progress_stream))
         .route("/api/logs", get(get_logs))
-        .route("/api/upload", post(upload_files))
         .route("/health", get(health_check))
         .with_state(state)
 }
@@ -126,69 +125,6 @@ async fn get_logs(State(state): State<Arc<RwLock<AppState>>>) -> Json<Vec<crate:
     Json(s.log_messages.clone())
 }
 
-
-async fn upload_files(
-    State(state): State<Arc<RwLock<AppState>>>,
-    mut multipart: Multipart,
-) -> Json<serde_json::Value> {
-    use std::path::Path;
-    use tokio::io::AsyncWriteExt;
-
-    let source_dir = {
-        let s = state.read().await;
-        s.config.source_dir.clone()
-    };
-
-    let dir = Path::new(&source_dir);
-    tokio::fs::create_dir_all(dir).await.unwrap_or_default();
-
-    let mut count = 0u32;
-    let mut errors = Vec::new();
-
-    while let Ok(Some(field)) = multipart.next_field().await {
-        let file_name = field
-            .file_name()
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| format!("file_{}", count));
-
-        let data = match field.bytes().await {
-            Ok(d) => d,
-            Err(e) => {
-                errors.push(format!("{}: {}", file_name, e));
-                continue;
-            }
-        };
-
-        let dest = dir.join(&file_name);
-        match tokio::fs::File::create(&dest).await {
-            Ok(mut f) => {
-                if f.write_all(&data).await.is_ok() {
-                    count += 1;
-                } else {
-                    errors.push(format!("{}: write failed", file_name));
-                }
-            }
-            Err(e) => errors.push(format!("{}: {}", file_name, e)),
-        }
-    }
-
-    {
-        let mut s = state.write().await;
-        let job_id = Uuid::new_v4().to_string();
-        StateMachine::start_job(&mut s, job_id);
-    }
-
-    let state_clone = Arc::clone(&state);
-    tokio::spawn(async move {
-        run_pipeline(state_clone).await;
-    });
-
-    Json(serde_json::json!({
-        "uploaded": count,
-        "errors": errors,
-        "source_dir": source_dir,
-    }))
-}
 
 async fn health_check() -> Json<serde_json::Value> {
     Json(serde_json::json!({

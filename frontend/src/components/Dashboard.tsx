@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Play, Pause, Square, FolderOpen, FolderOutput, Upload, Settings, Zap, Activity } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Play, Pause, Square, FolderOpen, FolderOutput, Settings, Zap, Activity } from 'lucide-react';
 import StageCard from './StageCard';
 import ProgressBar from './ProgressBar';
 import Console from './Console';
 import StatsPanel from './StatsPanel';
 
-const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8081';
+const API_URL = import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8081';
 
 interface StageInfo {
   name: string;
@@ -62,8 +62,6 @@ export default function Dashboard() {
   const [logs, setLogs] = useState<any[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState<'pipeline' | 'console'>('pipeline');
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Poll status
   useEffect(() => {
@@ -106,30 +104,6 @@ export default function Dashboard() {
       }),
     });
   }, [sourceDir, destDir, threshold]);
-
-  const uploadAndProcess = useCallback(async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setUploading(true);
-    const formData = new FormData();
-    for (let i = 0; i < files.length; i++) {
-      formData.append('files', files[i]);
-    }
-    try {
-      await fetch(`${API_URL}/api/upload`, { method: 'POST', body: formData });
-    } catch (e) {
-      console.error('Upload failed', e);
-    }
-    setUploading(false);
-  }, []);
-
-  const handleDirectoryPick = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
-  const handleFilesSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    uploadAndProcess(e.target.files);
-    e.target.value = '';
-  }, [uploadAndProcess]);
 
   const controlJob = useCallback(async (action: string) => {
     await fetch(`${API_URL}/api/control`, {
@@ -242,32 +216,12 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             {!state.is_running ? (
               <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  webkitdirectory=""
-                  multiple
-                  onChange={handleFilesSelected}
-                  className="hidden"
-                />
-                <button
-                  onClick={handleDirectoryPick}
-                  disabled={uploading}
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-mc-primary to-emerald-500 text-mc-bg font-semibold shadow-lg shadow-mc-primary/25 hover:shadow-mc-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
-                >
-                  {uploading ? (
-                    <Upload className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <FolderOpen className="w-5 h-5" />
-                  )}
-                  {uploading ? 'Uploading...' : 'Select Directory'}
-                </button>
                 <button
                   onClick={startJob}
-                  className="flex items-center gap-2 px-4 py-3 rounded-xl bg-mc-bgElevated border border-mc-border text-mc-text font-semibold hover:border-mc-primary hover:text-mc-primary transition-all"
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-mc-primary to-emerald-500 text-mc-bg font-semibold shadow-lg shadow-mc-primary/25 hover:shadow-mc-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all"
                 >
                   <Play className="w-5 h-5 fill-current" />
-                  Process Path
+                  Start Processing
                 </button>
               </>
             ) : (
