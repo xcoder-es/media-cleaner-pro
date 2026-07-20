@@ -1,0 +1,16 @@
+[package]
+name = "mc-infra"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mc-core = { path = "../mc-core" }
+tokio = { version = "1.38", features = ["fs"] }
+sha2 = "0.10"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "bmp", "webp", "gif"] }
+walkdir = "2.5"
+rusqlite = { version = "0.31", features = ["bundled"] }
+async-trait = "0.1"
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
