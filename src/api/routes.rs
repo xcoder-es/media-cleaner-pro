@@ -293,15 +293,14 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
     use crate::processing::duplicate::DuplicateDetector;
     use crate::processing::stages::StageProcessor;
     use std::collections::HashSet;
-    use walkdir::WalkDir;
     use std::time::Instant;
+    use walkdir::WalkDir;
 
     let (source_dir, _dest_dir, threshold) = {
         let s = state.read().await;
         (s.config.source_dir.clone(), s.config.dest_dir.clone(), s.config.hamming_threshold)
     };
 
-    // Extract adapter references
     let (file_system, exact_hasher, image_hasher, image_decoder) = {
         let s = state.read().await;
         (
@@ -312,7 +311,22 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         )
     };
 
-    // Stage 0: Count files
+    // Pause/cancel check helper
+    let check_control = || async {
+        loop {
+            let s = state.read().await;
+            if !s.is_running {
+                return false;
+            }
+            if !s.is_paused {
+                return true;
+            }
+            drop(s);
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    };
+
+    // Count files and collect paths
     let mut image_paths = Vec::new();
     for entry in WalkDir::new(&source_dir).into_iter().filter_map(|e| e.ok()) {
         if is_image_file(entry.path()) {
@@ -331,63 +345,45 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         }
     }
 
-    // Stage 1: Exact Duplicate Removal
-    {
-        let mut s = state.write().await;
-        StateMachine::start_stage(&mut s, 0);
-    }
+    // Pre-compute metadata for all images (read once, hash, decode)
+    let mut image_metas: Vec<Option<ImageMetadata>> = Vec::with_capacity(total);
 
-    let mut seen_hashes = HashSet::new();
-    let mut processed = 0;
-    let start_time = Instant::now();
-
-    for path in &image_paths {
-        // Check pause/cancel
-        {
-            loop {
-                let s = state.read().await;
-                if !s.is_running {
-                    return;
-                }
-                if !s.is_paused {
-                    break;
-                }
-                drop(s);
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
+    for (idx, path) in image_paths.iter().enumerate() {
+        if !check_control().await {
+            return;
         }
 
         let path_str = path.to_string_lossy().to_string();
         let filename = path.file_name().unwrap_or_default().to_string_lossy().to_string();
 
-        // Update current file
         {
             let mut s = state.write().await;
             s.stats.current_file = Some(filename.clone());
         }
 
-        // Read file bytes via adapter (async)
         let data = match file_system.read_file(path).await {
             Ok(d) => d,
             Err(_) => {
                 let mut s = state.write().await;
                 s.stats.error_count += 1;
+                image_metas.push(None);
                 continue;
             }
         };
-        let size_bytes = data.len() as u64;
 
-        // Compute hashes and decode (CPU-bound)
-        let (sha256, dhash, width, height) = match tokio::task::block_in_place(|| {
+        let result = tokio::task::block_in_place(|| {
             let sha256 = exact_hasher.compute_sha256(&data)?;
             let dhash = image_hasher.compute_dhash(&data)?;
             let info = image_decoder.decode(&data)?;
             Ok::<_, anyhow::Error>((sha256, dhash, info.width, info.height))
-        }) {
+        });
+
+        let (sha256, dhash, width, height) = match result {
             Ok(r) => r,
             Err(_) => {
                 let mut s = state.write().await;
                 s.stats.error_count += 1;
+                image_metas.push(None);
                 continue;
             }
         };
@@ -397,21 +393,55 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
             .unwrap_or("unknown")
             .to_string();
 
-        let meta = ImageMetadata {
-            path: path_str.clone(),
-            filename: filename.clone(),
-            size_bytes,
+        image_metas.push(Some(ImageMetadata {
+            path: path_str,
+            filename,
+            size_bytes: data.len() as u64,
             width,
             height,
-            sha256: sha256.clone(),
+            sha256,
             dhash: Some(dhash),
             format,
+        }));
+
+        if idx % 10 == 0 || idx + 1 == total {
+            let mut s = state.write().await;
+            s.stats.speed = 0.0;
+            s.stats.eta_seconds = 0;
+        }
+    }
+
+    // Stage 0: Exact Duplicate Removal
+    {
+        let mut s = state.write().await;
+        StateMachine::start_stage(&mut s, 0);
+    }
+
+    let mut seen_hashes = HashSet::new();
+    let mut processed = 0;
+    let start_time = Instant::now();
+
+    for meta_opt in &image_metas {
+        if !check_control().await {
+            return;
+        }
+
+        let meta = match meta_opt {
+            Some(m) => m,
+            None => {
+                processed += 1;
+                continue;
+            }
         };
 
-        // Stage 1: Exact duplicate
-        let result1 = StageProcessor::exact_duplicate(&meta, &seen_hashes);
-        if result1.passed {
-            seen_hashes.insert(sha256);
+        {
+            let mut s = state.write().await;
+            s.stats.current_file = Some(meta.filename.clone());
+        }
+
+        let result = StageProcessor::exact_duplicate(meta, &seen_hashes);
+        if result.passed {
+            seen_hashes.insert(meta.sha256.clone());
         } else {
             let mut s = state.write().await;
             s.stats.duplicate_count += 1;
@@ -424,8 +454,7 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
             let elapsed = start_time.elapsed().as_secs_f64();
             if elapsed > 0.0 {
                 s.stats.speed = processed as f64 / elapsed;
-                let remaining = total.saturating_sub(processed);
-                s.stats.eta_seconds = (remaining as f64 / s.stats.speed.max(0.1)) as u64;
+                s.stats.eta_seconds = (total.saturating_sub(processed) as f64 / s.stats.speed.max(0.1)) as u64;
             }
         }
     }
@@ -435,7 +464,7 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         StateMachine::complete_stage(&mut s, 0);
     }
 
-    // Stage 2: Perceptual Duplicate Removal
+    // Stage 1: Perceptual Duplicate Removal
     {
         let mut s = state.write().await;
         StateMachine::start_stage(&mut s, 1);
@@ -444,36 +473,21 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
     let mut detector = DuplicateDetector::new(threshold);
     let mut perceptual_processed = 0;
 
-    for path in &image_paths {
-        {
-            loop {
-                let s = state.read().await;
-                if !s.is_running {
-                    return;
-                }
-                if !s.is_paused {
-                    break;
-                }
-                drop(s);
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
+    for meta_opt in &image_metas {
+        if !check_control().await {
+            return;
         }
 
-        let path_str = path.to_string_lossy().to_string();
-
-        let data = match file_system.read_file(path).await {
-            Ok(d) => d,
-            Err(_) => continue,
+        let meta = match meta_opt {
+            Some(m) => m,
+            None => {
+                perceptual_processed += 1;
+                continue;
+            }
         };
 
-        let dhash = match tokio::task::block_in_place(|| {
-            image_hasher.compute_dhash(&data)
-        }) {
-            Ok(d) => d,
-            Err(_) => continue,
-        };
-
-        let duplicates = detector.add(path_str, dhash);
+        let dhash = meta.dhash.unwrap_or(0);
+        let duplicates = detector.add(meta.path.clone(), dhash);
 
         {
             let mut s = state.write().await;
@@ -497,43 +511,58 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         StateMachine::complete_stage(&mut s, 1);
     }
 
-    // Stage 3-10: Run remaining stages in batch
-    for stage_idx in 2..10 {
-        {
-            let mut s = state.write().await;
-            StateMachine::start_stage(&mut s, stage_idx);
-        }
+    // Stage 2: Tiny Image Detection
+    let min_dims = {
+        let s = state.read().await;
+        (s.config.min_width, s.config.min_height)
+    };
 
-        let mut stage_processed = 0;
-        for _path in &image_paths {
-            {
-                loop {
-                    let s = state.read().await;
-                    if !s.is_running {
-                        return;
-                    }
-                    if !s.is_paused {
-                        break;
-                    }
-                    drop(s);
-                    tokio::time::sleep(Duration::from_millis(100)).await;
-                }
-            }
+    crate::processing::run_simple_stage(
+        &state, 2, &image_metas, total, &check_control,
+        |meta| StageProcessor::tiny_image(meta, min_dims.0, min_dims.1),
+    ).await;
 
-            // For stages 3-10, we'd need to load metadata from DB or re-scan
-            // For now, simulate progress
-            stage_processed += 1;
-            if stage_processed % 50 == 0 || stage_processed == total {
-                let mut s = state.write().await;
-                StateMachine::update_stage_progress(&mut s, stage_idx, stage_processed, total);
-            }
-        }
+    // Stage 3: Icon Detection
+    crate::processing::run_simple_stage(
+        &state, 3, &image_metas, total, &check_control,
+        |meta| StageProcessor::icon_detection(meta),
+    ).await;
 
-        {
-            let mut s = state.write().await;
-            StateMachine::complete_stage(&mut s, stage_idx);
-        }
-    }
+    // Stage 4: Thumbnail Detection
+    crate::processing::run_simple_stage(
+        &state, 4, &image_metas, total, &check_control,
+        |meta| StageProcessor::thumbnail_detection(meta),
+    ).await;
+
+    // Stage 5: Screenshot Detection
+    crate::processing::run_simple_stage(
+        &state, 5, &image_metas, total, &check_control,
+        |meta| StageProcessor::screenshot_detection(meta),
+    ).await;
+
+    // Stage 6: Wallpaper Detection
+    crate::processing::run_simple_stage(
+        &state, 6, &image_metas, total, &check_control,
+        |meta| StageProcessor::wallpaper_detection(meta),
+    ).await;
+
+    // Stage 7: Document Detection
+    crate::processing::run_simple_stage(
+        &state, 7, &image_metas, total, &check_control,
+        |meta| StageProcessor::document_detection(meta),
+    ).await;
+
+    // Stage 8: AI Classification
+    crate::processing::run_simple_stage(
+        &state, 8, &image_metas, total, &check_control,
+        |meta| StageProcessor::ai_classification(meta),
+    ).await;
+
+    // Stage 9: Quality Ranking
+    crate::processing::run_simple_stage(
+        &state, 9, &image_metas, total, &check_control,
+        |meta| StageProcessor::quality_ranking(meta),
+    ).await;
 
     {
         let mut s = state.write().await;

@@ -9,6 +9,8 @@ pub struct Config {
     pub source_dir: String,
     pub dest_dir: String,
     pub hamming_threshold: u32,
+    pub min_width: u32,
+    pub min_height: u32,
     pub worker_threads: usize,
     pub db_path: String,
     pub temporal_host: Option<String>,
@@ -33,6 +35,12 @@ impl Config {
                 .unwrap_or_else(|_| "./data/output".to_string()),
             hamming_threshold: env::var("HAMMING_THRESHOLD")
                 .unwrap_or_else(|_| "4".to_string())
+                .parse()?,
+            min_width: env::var("MIN_WIDTH")
+                .unwrap_or_else(|_| "100".to_string())
+                .parse()?,
+            min_height: env::var("MIN_HEIGHT")
+                .unwrap_or_else(|_| "100".to_string())
                 .parse()?,
             worker_threads: env::var("WORKER_THREADS")
                 .unwrap_or_else(|_| "0".to_string())
