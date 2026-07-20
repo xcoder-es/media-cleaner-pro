@@ -31,6 +31,7 @@ pub fn create_routes(state: Arc<RwLock<AppState>>) -> Router {
         .route("/api/openapi.json", get(serve_openapi))
         .route("/health", get(health_check))
         .with_state(state)
+        .fallback(crate::frontend::serve_assets)
 }
 
 #[derive(OpenApi)]
