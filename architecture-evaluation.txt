@@ -1,0 +1,191 @@
+For a **439K-image media processing pipeline** that needs to be fast, secure, and maintainable, here's the state-of-the-art architecture I'd recommend — refined from what we've been building:
+
+---
+
+## 1. Architectural Pattern: Event-Driven Hexagonal Monolith
+
+Don't do microservices yet. Start with a **monolith with clean internal boundaries** so you can split later if needed.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      API Layer (Axum)                        │
+│  REST + OpenAPI  │  SSE Progress  │  gRPC (internal future) │
+└────────────────────┬──────────────────────────────────────────┘
+                     │
+┌────────────────────▼──────────────────────────────────────────┐
+│                  Application Bus (Tokio)                   │
+│  Commands → Domain Events → Projections → Query Responses    │
+└────────────────────┬──────────────────────────────────────────┘
+                     │
+┌────────────────────▼──────────────────────────────────────────┐
+│              Domain Core (Pure Rust, no I/O)                 │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────────┐ │
+│  │  Stage 1    │ │  Stage 2    │ │  Stage 3–10 (Plugins)   │ │
+│  │ Exact Dup   │ │ Perceptual  │ │ Icon/Screenshot/etc.    │ │
+│  │  (SHA-256)  │ │  (dHash)    │ │  (Heuristics)           │ │
+│  └─────────────┘ └─────────────┘ └─────────────────────────┘ │
+└────────────────────┬──────────────────────────────────────────┘
+                     │
+┌────────────────────▼──────────────────────────────────────────┐
+│              Adapters (Swappable I/O)                         │
+│  FileSystem  │  SQLite/Postgres  │  Temporal  │  Supabase    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Why this wins:**
+- **Hexagonal**: Your 10 stage algorithms are pure functions. You can unit-test them without touching the filesystem.
+- **Event-driven**: Each completed stage emits an event. The next stage picks it up. This is how Temporal will plug in later.
+- **Monolith**: One deployable, one Docker Compose, zero network latency between stages.
+
+---
+
+## 2. API Design: Pragmatic REST + OpenAPI + SSE
+
+| Decision | Recommendation | Why |
+|----------|---------------|-----|
+| **Protocol** | REST (JSON) | File uploads and batch ops are painful in GraphQL. gRPC is internal-only. |
+| **Docs** | OpenAPI 3.1 auto-generated from Rust code (`utoipa`) | Your frontend gets a generated TypeScript client — zero drift between backend and frontend types. |
+| **Real-time** | SSE (Server-Sent Events) | You already have this. It's perfect for one-way progress streaming. WebSockets are overkill. |
+| **Pagination** | Cursor-based | For browsing 439K results later. Offset pagination dies at scale. |
+| **Versioning** | URL path (`/v1/...`) | Simple, cache-friendly, explicit. |
+
+**State-of-the-art addition:** Generate your frontend API client automatically:
+```bash
+# Backend exports OpenAPI spec
+cargo run --bin export-openapi > openapi.json
+
+# Frontend generates typed client
+npx openapi-typescript openapi.json -o src/api/types.ts
+```
+Now your React components know exactly what `StartJobRequest` looks like. If you change the Rust struct, the frontend build fails until you fix it. **Type safety across the wire.**
+
+---
+
+## 3. Data Strategy: CQRS with SQLite → PostgreSQL Path
+
+| Concern | Technology | Pattern |
+|---------|-----------|---------|
+| **Command/Write** | SQLite (local) or Supabase Postgres (cloud) | Event log of every image processed |
+| **Query/Read** | Same DB, materialized views | Pre-computed duplicate lists, category counts |
+| **Cache** | Redis (optional) | Hot paths: job status, progress counters |
+| **File Metadata** | `sqlx` with compile-time checked queries | Catches SQL errors at `cargo build`, not runtime |
+
+**Why not just rusqlite?** Switch to **`sqlx`**. It gives you:
+- Compile-time query validation (your SQL is checked against the actual DB schema during build)
+- Async/await native
+- Connection pooling
+- Migration management (`sqlx migrate`)
+
+---
+
+## 4. Processing Pipeline: Actor Model + Backpressure
+
+Your current pipeline is a single loop. For 439K images, you need **backpressure** — the system should slow down if memory fills up, not crash.
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────────┐
+│   Scanner   │────▶│  Hash Pool  │────▶│  Stage Workers  │
+│ (Disk I/O)  │     │ (Rayon/CPU) │     │ (Tokio tasks)   │
+│  16 readers │     │  8 workers  │     │  bounded queue  │
+└─────────────┘     └─────────────┘     └─────────────────┘
+```
+
+**Implementation in Rust:**
+- **Scanner**: `tokio::fs` async file walking (already streaming — good)
+- **Hash Pool**: `rayon` thread pool for dHash/SHA-256 (CPU-bound work off the async runtime)
+- **Stage Workers**: Tokio bounded channels (`tokio::sync::mpsc::channel(1000)`) so memory stays capped
+- **Backpressure**: If the queue is full, the scanner pauses automatically
+
+**State of the art crate:** `tokio::sync::mpsc` + `rayon::spawn` for the CPU/Rust boundary.
+
+---
+
+## 5. Temporal Integration: The Right Way
+
+Since Temporal is a must-have, here's how to architect it properly **without** waiting for the Rust SDK to stabilize:
+
+**Hybrid Approach (Do This Now):**
+- Keep your Rust monolith as the **Worker** (processes images)
+- Use the **Temporal TypeScript SDK** or **Python SDK** for the **Workflow orchestrator** (decides *which* stage runs next)
+- Communicate via Temporal task queues
+
+```
+Temporal Server (Docker)
+    │
+    ├── Workflow: "ProcessBatch" (TypeScript/Python)
+    │      Step 1: Signal Rust worker → "Run Stage 1"
+    │      Step 2: Wait for completion signal
+    │      Step 3: Signal Rust worker → "Run Stage 2"
+    │
+    └── Activity: "ProcessImages" (Rust gRPC/HTTP service)
+           Actually does the dHash, file moves, etc.
+```
+
+**Why this is state of the art:**
+- Temporal workflows are **durable**. If your machine reboots mid-job, Temporal resumes exactly where it left off.
+- Rust handles the **performance-critical** image processing.
+- You don't block on the Rust SDK being production-ready.
+
+**Later:** When `temporal-sdk` for Rust hits 1.0, replace the TypeScript orchestrator with pure Rust workflows.
+
+---
+
+## 6. Security: Defense in Depth for File Processing
+
+| Threat | Mitigation |
+|--------|-----------|
+| **Path Traversal** | Canonicalize all paths with `std::fs::canonicalize()`. Reject anything outside source/dest roots. |
+| **Zip Bomb / Decompression** | Set max file size (e.g., 100MB), max dimensions (e.g., 16K×16K), timeout per image. |
+| **Fake Extensions** | Read magic bytes (file signatures), don't trust `.jpg`. The `image` crate does this automatically. |
+| **Resource Exhaustion** | Bounded channels, max concurrent workers, OS-level `ulimit` in Docker. |
+| **CORS / CSRF** | `tower-http` CORS layer restricted to `localhost:4321` only. |
+| **Rate Limiting** | `tower-governor` crate — max 1 job start per 10 seconds. |
+
+---
+
+## 7. Developer Experience (DX): The "Easy" Part
+
+| Pain Point | Solution |
+|-----------|----------|
+| Rust compile times | `cargo watch` for dev, `mold` linker on Linux, `sccache` for CI |
+| Frontend ↔ Backend type drift | OpenAPI codegen (utoipa → openapi-typescript) |
+| Database schema changes | `sqlx migrate` — versioned migrations, checked at compile time |
+| Debugging async code | `tokio-console` + `tracing` + Jaeger (OpenTelemetry) |
+| Local dev environment | Docker Compose with hot-reload volumes |
+
+---
+
+## 8. The Recommended Stack (Final)
+
+| Layer | Tech | Role |
+|-------|------|------|
+| **Language** | Rust | Performance, safety, single binary deployment |
+| **Web Framework** | Axum + Tower | Async HTTP, middleware, SSE |
+| **API Spec** | Utoipa | Auto-generated OpenAPI from Rust code |
+| **Database** | SQLx + SQLite (dev) / Supabase Postgres (prod) | Type-safe async SQL |
+| **Image Processing** | `image` + `rayon` | dHash, resize, format detection |
+| **Workflows** | Temporal (TypeScript orchestrator + Rust worker) | Durable execution, retries |
+| **Frontend** | Astro + React + Tailwind | SSR, islands architecture, minimal JS |
+| **Real-time** | SSE | Progress streaming |
+| **Observability** | Tracing + OpenTelemetry + Jaeger | Request tracing, performance metrics |
+| **Deployment** | Docker + GitHub Actions | Multi-arch builds, releases |
+
+---
+
+## 9. What I'd Change from Our Current Build
+
+1. **Replace `rusqlite` with `sqlx`** — compile-time SQL checking is a game-changer for DX.
+2. **Add `utoipa`** — derive OpenAPI specs directly on your Axum handlers.
+3. **Split the pipeline into a job queue** — even without Temporal, use `sqlx` + a `jobs` table so you can pause/resume by reading job state from the DB, not just memory.
+4. **Add file signature validation** — before calling `ImageReader::open()`, check magic bytes.
+5. **Add a `config.yaml` file** — instead of only env vars, support a YAML config for the 10 stage thresholds (Hamming distance, min resolution, etc.).
+
+---
+
+## The Honest Trade-off
+
+Rust gives you **performance and safety** but costs **development velocity** while you learn the borrow checker. For this specific app — processing half a million images — that trade-off is **100% worth it**. A Python/Node version would be 10× slower and memory-hungry.
+
+The architecture above is what I'd build if I were shipping this as a commercial product tomorrow. It's over-engineered for a v1, but every piece has a clear migration path: SQLite → Postgres, local → Temporal, monolith → microservices.
+
+Want me to refactor the current codebase toward this architecture — starting with `sqlx` and `utoipa` integration?

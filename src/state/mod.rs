@@ -1,11 +1,19 @@
 pub mod machine;
 pub mod db;
 
+use std::sync::Arc;
+use mc_core::{FileSystem, ExactHasher, ImageHasher, ImageDecoder, NotificationBus};
 pub use mc_core::{StageInfo, StageStatus, ProcessingStats, LogMessage};
 
-use serde::{Deserialize, Serialize};
+pub struct AppContext {
+    pub file_system: Arc<dyn FileSystem>,
+    pub exact_hasher: Arc<dyn ExactHasher>,
+    pub image_hasher: Arc<dyn ImageHasher>,
+    pub image_decoder: Arc<dyn ImageDecoder>,
+    pub notifier: Arc<dyn NotificationBus>,
+}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct AppState {
     pub job_id: Option<String>,
     pub stages: Vec<StageInfo>,
@@ -14,10 +22,18 @@ pub struct AppState {
     pub is_paused: bool,
     pub log_messages: Vec<LogMessage>,
     pub config: crate::config::Config,
+    pub ctx: Arc<AppContext>,
 }
 
 impl AppState {
-    pub fn new(config: crate::config::Config) -> Self {
+    pub fn new(
+        config: crate::config::Config,
+        file_system: Arc<dyn FileSystem>,
+        exact_hasher: Arc<dyn ExactHasher>,
+        image_hasher: Arc<dyn ImageHasher>,
+        image_decoder: Arc<dyn ImageDecoder>,
+        notifier: Arc<dyn NotificationBus>,
+    ) -> Self {
         let stages = vec![
             StageInfo {
                 name: "Exact Duplicate Removal".to_string(),
@@ -149,6 +165,13 @@ impl AppState {
             is_paused: false,
             log_messages: Vec::new(),
             config,
+            ctx: Arc::new(AppContext {
+                file_system,
+                exact_hasher,
+                image_hasher,
+                image_decoder,
+                notifier,
+            }),
         }
     }
 }

@@ -16,7 +16,6 @@ use uuid::Uuid;
 use crate::{
     api::models::*,
     state::{machine::StateMachine, AppState},
-    SharedState,
 };
 
 pub fn create_routes(state: Arc<RwLock<AppState>>) -> Router {
@@ -206,17 +205,26 @@ async fn health_check() -> Json<serde_json::Value> {
 // The actual pipeline runner
 pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
     use crate::processing::*;
-    use crate::processing::hash::{compute_sha256, compute_dhash, format_dhash};
     use crate::processing::duplicate::DuplicateDetector;
     use crate::processing::stages::StageProcessor;
     use std::collections::HashSet;
     use walkdir::WalkDir;
-    use image::ImageReader;
     use std::time::Instant;
 
     let (source_dir, _dest_dir, threshold) = {
         let s = state.read().await;
         (s.config.source_dir.clone(), s.config.dest_dir.clone(), s.config.hamming_threshold)
+    };
+
+    // Extract adapter references
+    let (file_system, exact_hasher, image_hasher, image_decoder) = {
+        let s = state.read().await;
+        (
+            Arc::clone(&s.ctx.file_system),
+            Arc::clone(&s.ctx.exact_hasher),
+            Arc::clone(&s.ctx.image_hasher),
+            Arc::clone(&s.ctx.image_decoder),
+        )
     };
 
     // Stage 0: Count files
@@ -273,30 +281,36 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
             s.stats.current_file = Some(filename.clone());
         }
 
-        // Load image and compute metadata
-        let (width, height, format, sha256, dhash, size_bytes) = match tokio::task::block_in_place(|| {
-            let img = ImageReader::open(path)?.decode();
-            let sha256 = compute_sha256(path)?;
-            let (width, height, dhash) = if let Ok(img) = img {
-                let dhash = compute_dhash(&img);
-                (img.width(), img.height(), Some(dhash))
-            } else {
-                (0, 0, None)
-            };
-            let format = path.extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("unknown")
-                .to_string();
-            let size_bytes = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
-            Ok::<_, anyhow::Error>((width, height, format, sha256, dhash, size_bytes))
-        }) {
-            Ok((w, h, f, s, d, sb)) => (w, h, f, s, d, sb),
+        // Read file bytes via adapter (async)
+        let data = match file_system.read_file(path).await {
+            Ok(d) => d,
             Err(_) => {
                 let mut s = state.write().await;
                 s.stats.error_count += 1;
                 continue;
             }
         };
+        let size_bytes = data.len() as u64;
+
+        // Compute hashes and decode (CPU-bound)
+        let (sha256, dhash, width, height) = match tokio::task::block_in_place(|| {
+            let sha256 = exact_hasher.compute_sha256(&data)?;
+            let dhash = image_hasher.compute_dhash(&data)?;
+            let info = image_decoder.decode(&data)?;
+            Ok::<_, anyhow::Error>((sha256, dhash, info.width, info.height))
+        }) {
+            Ok(r) => r,
+            Err(_) => {
+                let mut s = state.write().await;
+                s.stats.error_count += 1;
+                continue;
+            }
+        };
+
+        let format = path.extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("unknown")
+            .to_string();
 
         let meta = ImageMetadata {
             path: path_str.clone(),
@@ -305,7 +319,7 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
             width,
             height,
             sha256: sha256.clone(),
-            dhash,
+            dhash: Some(dhash),
             format,
         };
 
@@ -361,9 +375,14 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         }
 
         let path_str = path.to_string_lossy().to_string();
+
+        let data = match file_system.read_file(path).await {
+            Ok(d) => d,
+            Err(_) => continue,
+        };
+
         let dhash = match tokio::task::block_in_place(|| {
-            let img = ImageReader::open(path)?.decode()?;
-            Ok::<_, anyhow::Error>(compute_dhash(&img))
+            image_hasher.compute_dhash(&data)
         }) {
             Ok(d) => d,
             Err(_) => continue,
@@ -373,7 +392,7 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
 
         {
             let mut s = state.write().await;
-            s.stats.current_dhash = Some(format_dhash(dhash));
+            s.stats.current_dhash = Some(mc_core::format_dhash(dhash));
             if !duplicates.is_empty() {
                 s.stats.duplicate_count += 1;
             } else {

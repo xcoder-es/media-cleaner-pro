@@ -50,6 +50,7 @@ reqwest = { version = "0.12", features = ["json"], optional = true }
 
 # Workspace crates
 mc-core = { path = "packages/mc-core" }
+mc-infra = { path = "packages/mc-infra" }
 
 # Utilities
 thiserror = "1.0"

@@ -967,6 +967,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "mc-infra"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "image",
+ "mc-core",
+ "rusqlite",
+ "serde",
+ "sha2",
+ "tokio",
+ "walkdir",
+]
+
+[[package]]
 name = "mediacleaner-pro"
 version = "2.0.0"
 dependencies = [
@@ -977,6 +993,7 @@ dependencies = [
  "dotenvy",
  "image",
  "mc-core",
+ "mc-infra",
  "rayon",
  "reqwest",
  "rusqlite",
