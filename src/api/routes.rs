@@ -411,6 +411,9 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         }
     }
 
+    // Collect results per image for file routing
+    let mut results_map: std::collections::HashMap<String, Vec<StageResult>> = std::collections::HashMap::new();
+
     // Stage 0: Exact Duplicate Removal
     {
         let mut s = state.write().await;
@@ -440,6 +443,7 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         }
 
         let result = StageProcessor::exact_duplicate(meta, &seen_hashes);
+        results_map.entry(meta.path.clone()).or_default().push(result.clone());
         if result.passed {
             seen_hashes.insert(meta.sha256.clone());
         } else {
@@ -489,6 +493,9 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         let dhash = meta.dhash.unwrap_or(0);
         let duplicates = detector.add(meta.path.clone(), dhash);
 
+        let result = StageProcessor::perceptual_duplicate(meta, &duplicates);
+        results_map.entry(meta.path.clone()).or_default().push(result);
+
         {
             let mut s = state.write().await;
             s.stats.current_dhash = Some(mc_core::format_dhash(dhash));
@@ -517,52 +524,71 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         (s.config.min_width, s.config.min_height)
     };
 
-    crate::processing::run_simple_stage(
+    for (path, result) in crate::processing::run_simple_stage(
         &state, 2, &image_metas, total, &check_control,
         |meta| StageProcessor::tiny_image(meta, min_dims.0, min_dims.1),
-    ).await;
+    ).await {
+        results_map.entry(path).or_default().push(result);
+    }
 
     // Stage 3: Icon Detection
-    crate::processing::run_simple_stage(
+    for (path, result) in crate::processing::run_simple_stage(
         &state, 3, &image_metas, total, &check_control,
         |meta| StageProcessor::icon_detection(meta),
-    ).await;
+    ).await {
+        results_map.entry(path).or_default().push(result);
+    }
 
     // Stage 4: Thumbnail Detection
-    crate::processing::run_simple_stage(
+    for (path, result) in crate::processing::run_simple_stage(
         &state, 4, &image_metas, total, &check_control,
         |meta| StageProcessor::thumbnail_detection(meta),
-    ).await;
+    ).await {
+        results_map.entry(path).or_default().push(result);
+    }
 
     // Stage 5: Screenshot Detection
-    crate::processing::run_simple_stage(
+    for (path, result) in crate::processing::run_simple_stage(
         &state, 5, &image_metas, total, &check_control,
         |meta| StageProcessor::screenshot_detection(meta),
-    ).await;
+    ).await {
+        results_map.entry(path).or_default().push(result);
+    }
 
     // Stage 6: Wallpaper Detection
-    crate::processing::run_simple_stage(
+    for (path, result) in crate::processing::run_simple_stage(
         &state, 6, &image_metas, total, &check_control,
         |meta| StageProcessor::wallpaper_detection(meta),
-    ).await;
+    ).await {
+        results_map.entry(path).or_default().push(result);
+    }
 
     // Stage 7: Document Detection
-    crate::processing::run_simple_stage(
+    for (path, result) in crate::processing::run_simple_stage(
         &state, 7, &image_metas, total, &check_control,
         |meta| StageProcessor::document_detection(meta),
-    ).await;
+    ).await {
+        results_map.entry(path).or_default().push(result);
+    }
 
     // Stage 8: AI Classification
-    crate::processing::run_simple_stage(
+    for (path, result) in crate::processing::run_simple_stage(
         &state, 8, &image_metas, total, &check_control,
         |meta| StageProcessor::ai_classification(meta),
-    ).await;
+    ).await {
+        results_map.entry(path).or_default().push(result);
+    }
 
     // Stage 9: Quality Ranking
-    crate::processing::run_simple_stage(
+    for (path, result) in crate::processing::run_simple_stage(
         &state, 9, &image_metas, total, &check_control,
         |meta| StageProcessor::quality_ranking(meta),
-    ).await;
+    ).await {
+        results_map.entry(path).or_default().push(result);
+    }
+
+    // Route files based on collected results
+    crate::processing::route_files(&state, &image_metas, &results_map).await;
 
     {
         let mut s = state.write().await;
