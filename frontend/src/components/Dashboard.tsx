@@ -98,8 +98,8 @@ export default function Dashboard() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        source_dir: sourceDir || './data/source',
-        dest_dir: destDir || './data/output',
+        source_dir: sourceDir || '/data/source',
+        dest_dir: destDir || '/data/output',
         hamming_threshold: threshold,
       }),
     });
@@ -170,7 +170,7 @@ export default function Dashboard() {
                       type="text"
                       value={sourceDir}
                       onChange={(e) => setSourceDir(e.target.value)}
-                      placeholder="./data/source"
+                      placeholder="/data/source"
                       className="flex-1 bg-transparent text-sm outline-none placeholder:text-mc-text-dim"
                     />
                   </div>
@@ -185,7 +185,7 @@ export default function Dashboard() {
                     type="text"
                     value={destDir}
                     onChange={(e) => setDestDir(e.target.value)}
-                    placeholder="./data/output"
+                    placeholder="/data/output"
                     className="flex-1 bg-transparent text-sm outline-none placeholder:text-mc-text-dim"
                   />
                 </div>
