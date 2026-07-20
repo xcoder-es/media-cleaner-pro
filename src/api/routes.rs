@@ -44,7 +44,7 @@ pub fn create_routes(state: Arc<RwLock<AppState>>) -> Router {
     info(
         title = "MediaCleaner Pro API",
         description = "REST API for MediaCleaner Pro — perceptual duplicate image removal pipeline",
-        version = "2.0.0",
+        version = "0.1.0-alpha",
         license(name = "MIT")
     ),
     tags(
