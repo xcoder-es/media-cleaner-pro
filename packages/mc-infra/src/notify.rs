@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use mc_core::{DomainError, NotificationBus, PipelineEvent};
+use mc_core::{NotificationBus, PipelineEvent};
 
 pub struct InMemoryNotifier {
     subscribers: Arc<std::sync::Mutex<Vec<std::sync::mpsc::Sender<PipelineEvent>>>>,

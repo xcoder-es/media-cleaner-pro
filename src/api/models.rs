@@ -1,14 +1,15 @@
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use crate::state::{StageInfo, ProcessingStats, LogMessage};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct StartJobRequest {
     pub source_dir: String,
     pub dest_dir: String,
     pub hamming_threshold: Option<u32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct JobResponse {
     pub job_id: String,
     pub status: String,
@@ -18,7 +19,7 @@ pub struct JobResponse {
     pub is_paused: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct StateResponse {
     pub stages: Vec<StageInfo>,
     pub stats: ProcessingStats,
@@ -27,7 +28,7 @@ pub struct StateResponse {
     pub log_messages: Vec<LogMessage>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ControlRequest {
     pub action: String, // start, pause, resume, cancel
 }
