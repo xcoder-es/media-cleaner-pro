@@ -13,7 +13,6 @@ use uuid::Uuid;
 
 use crate::{
     api::models::*,
-    config::Config,
     state::{machine::StateMachine, AppState},
 };
 
@@ -146,7 +145,7 @@ async fn run_pipeline(state: Arc<RwLock<AppState>>) {
     use image::ImageReader;
     use std::time::Instant;
 
-    let (source_dir, dest_dir, threshold) = {
+    let (source_dir, _dest_dir, threshold) = {
         let s = state.read().await;
         (s.config.source_dir.clone(), s.config.dest_dir.clone(), s.config.hamming_threshold)
     };
@@ -183,20 +182,16 @@ async fn run_pipeline(state: Arc<RwLock<AppState>>) {
     for path in &image_paths {
         // Check pause/cancel
         {
-            let s = state.read().await;
-            if !s.is_running {
-                return;
-            }
-            while s.is_paused {
-                drop(s);
-                tokio::time::sleep(Duration::from_millis(100)).await;
-                let s2 = state.read().await;
-                if !s2.is_running {
+            loop {
+                let s = state.read().await;
+                if !s.is_running {
                     return;
                 }
-                if !s2.is_paused {
+                if !s.is_paused {
                     break;
                 }
+                drop(s);
+                tokio::time::sleep(Duration::from_millis(100)).await;
             }
         }
 
@@ -283,20 +278,16 @@ async fn run_pipeline(state: Arc<RwLock<AppState>>) {
 
     for path in &image_paths {
         {
-            let s = state.read().await;
-            if !s.is_running {
-                return;
-            }
-            while s.is_paused {
-                drop(s);
-                tokio::time::sleep(Duration::from_millis(100)).await;
-                let s2 = state.read().await;
-                if !s2.is_running {
+            loop {
+                let s = state.read().await;
+                if !s.is_running {
                     return;
                 }
-                if !s2.is_paused {
+                if !s.is_paused {
                     break;
                 }
+                drop(s);
+                tokio::time::sleep(Duration::from_millis(100)).await;
             }
         }
 
@@ -341,22 +332,18 @@ async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         }
 
         let mut stage_processed = 0;
-        for path in &image_paths {
+        for _path in &image_paths {
             {
-                let s = state.read().await;
-                if !s.is_running {
-                    return;
-                }
-                while s.is_paused {
-                    drop(s);
-                    tokio::time::sleep(Duration::from_millis(100)).await;
-                    let s2 = state.read().await;
-                    if !s2.is_running {
+                loop {
+                    let s = state.read().await;
+                    if !s.is_running {
                         return;
                     }
-                    if !s2.is_paused {
+                    if !s.is_paused {
                         break;
                     }
+                    drop(s);
+                    tokio::time::sleep(Duration::from_millis(100)).await;
                 }
             }
 

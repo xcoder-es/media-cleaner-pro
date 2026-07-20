@@ -17,7 +17,7 @@ impl StageProcessor {
     }
 
     /// Stage 2: Perceptual Duplicate (called externally with detector)
-    pub fn perceptual_duplicate(meta: &ImageMetadata, duplicate_paths: &[String]) -> StageResult {
+    pub fn perceptual_duplicate(_meta: &ImageMetadata, duplicate_paths: &[String]) -> StageResult {
         let is_duplicate = !duplicate_paths.is_empty();
         StageResult {
             stage_name: "Perceptual Duplicate Removal".to_string(),

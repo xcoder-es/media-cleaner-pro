@@ -5,7 +5,7 @@ import ProgressBar from './ProgressBar';
 import Console from './Console';
 import StatsPanel from './StatsPanel';
 
-const API_URL = 'http://localhost:8080';
+const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8081';
 
 interface StageInfo {
   name: string;
