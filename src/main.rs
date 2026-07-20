@@ -1,4 +1,3 @@
-use axum::http::HeaderValue;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -35,8 +34,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let cors = CorsLayer::new()
-        .allow_origin("http://localhost:4321".parse::<HeaderValue>().unwrap())
-        .allow_origin("http://127.0.0.1:4321".parse::<HeaderValue>().unwrap())
+        .allow_origin(Any)
         .allow_methods(Any)
         .allow_headers(Any);
 
