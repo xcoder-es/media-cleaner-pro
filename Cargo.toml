@@ -49,8 +49,11 @@ rusqlite = { version = "0.31", features = ["bundled", "chrono", "uuid"] }
 reqwest = { version = "0.12", features = ["json"], optional = true }
 
 # Workspace crates
-mc-core = { path = "packages/mc-core" }
+mc-core = { path = "packages/mc-core", features = ["schema"] }
 mc-infra = { path = "packages/mc-infra" }
+
+# OpenAPI
+utoipa = { version = "5", features = ["axum_extras"] }
 
 # Utilities
 thiserror = "1.0"

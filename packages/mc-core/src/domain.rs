@@ -24,6 +24,7 @@ pub struct StageResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct StageInfo {
     pub name: String,
     pub description: String,
@@ -38,6 +39,7 @@ pub struct StageInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub enum StageStatus {
     Pending,
     Running,
@@ -47,6 +49,7 @@ pub enum StageStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct ProcessingStats {
     pub current_file: Option<String>,
     pub current_dhash: Option<String>,
@@ -60,6 +63,7 @@ pub struct ProcessingStats {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct LogMessage {
     pub timestamp: String,
     pub level: String,
@@ -68,6 +72,7 @@ pub struct LogMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct PipelineConfig {
     pub hamming_threshold: u32,
     pub min_width: u32,

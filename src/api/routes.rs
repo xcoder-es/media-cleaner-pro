@@ -10,12 +10,15 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio_stream::Stream;
+use utoipa::{OpenApi, ToSchema};
 use uuid::Uuid;
 
 use crate::{
     api::models::*,
-    state::{machine::StateMachine, AppState},
+    state::{machine::StateMachine, AppState, StageInfo, StageStatus, ProcessingStats, LogMessage},
 };
+
+use mc_core::PipelineConfig;
 
 pub fn create_routes(state: Arc<RwLock<AppState>>) -> Router {
     Router::new()
@@ -25,11 +28,37 @@ pub fn create_routes(state: Arc<RwLock<AppState>>) -> Router {
         .route("/api/progress", get(progress_stream))
         .route("/api/logs", get(get_logs))
         .route("/api/browse", get(browse_directory))
+        .route("/api/openapi.json", get(serve_openapi))
         .route("/health", get(health_check))
         .with_state(state)
 }
 
-#[derive(serde::Serialize)]
+#[derive(OpenApi)]
+#[openapi(
+    paths(health_check, get_status, start_job, control_job, progress_stream, get_logs, browse_directory),
+    components(schemas(
+        StartJobRequest, JobResponse, StateResponse, ControlRequest,
+        DirEntry, StageInfo, StageStatus, ProcessingStats, LogMessage, PipelineConfig,
+    )),
+    info(
+        title = "MediaCleaner Pro API",
+        description = "REST API for MediaCleaner Pro — perceptual duplicate image removal pipeline",
+        version = "2.0.0",
+        license(name = "MIT")
+    ),
+    tags(
+        (name = "health", description = "Service health endpoints"),
+        (name = "pipeline", description = "Image processing pipeline operations"),
+        (name = "files", description = "File system browsing"),
+    )
+)]
+struct ApiDoc;
+
+async fn serve_openapi() -> Json<utoipa::openapi::OpenApi> {
+    Json(ApiDoc::openapi())
+}
+
+#[derive(serde::Serialize, ToSchema)]
 struct DirEntry {
     name: String,
     path: String,
@@ -37,6 +66,17 @@ struct DirEntry {
     image_count: usize,
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/browse",
+    tag = "files",
+    params(
+        ("path" = String, Query, description = "Directory path to browse"),
+    ),
+    responses(
+        (status = 200, description = "Directory listing", body = Vec<DirEntry>),
+    )
+)]
 async fn browse_directory(
     Query(params): Query<HashMap<String, String>>,
 ) -> Json<Vec<DirEntry>> {
@@ -89,6 +129,14 @@ async fn browse_directory(
     Json(entries)
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/status",
+    tag = "pipeline",
+    responses(
+        (status = 200, description = "Current pipeline state", body = StateResponse),
+    )
+)]
 async fn get_status(State(state): State<Arc<RwLock<AppState>>>) -> Json<StateResponse> {
     let s = state.read().await;
     Json(StateResponse {
@@ -100,6 +148,15 @@ async fn get_status(State(state): State<Arc<RwLock<AppState>>>) -> Json<StateRes
     })
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/start",
+    tag = "pipeline",
+    request_body = StartJobRequest,
+    responses(
+        (status = 200, description = "Job started successfully", body = JobResponse),
+    )
+)]
 async fn start_job(
     State(state): State<Arc<RwLock<AppState>>>,
     Json(req): Json<StartJobRequest>,
@@ -132,6 +189,15 @@ async fn start_job(
     })
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/control",
+    tag = "pipeline",
+    request_body = ControlRequest,
+    responses(
+        (status = 200, description = "Control action executed", body = serde_json::Value),
+    )
+)]
 async fn control_job(
     State(state): State<Arc<RwLock<AppState>>>,
     Json(req): Json<ControlRequest>,
@@ -153,6 +219,14 @@ async fn control_job(
     }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/progress",
+    tag = "pipeline",
+    responses(
+        (status = 200, description = "Server-Sent Events stream of StateResponse", content_type = "text/event-stream"),
+    )
+)]
 async fn progress_stream(
     State(state): State<Arc<RwLock<AppState>>>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
@@ -182,12 +256,28 @@ async fn progress_stream(
     )
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/logs",
+    tag = "pipeline",
+    responses(
+        (status = 200, description = "Recent log messages", body = Vec<LogMessage>),
+    )
+)]
 async fn get_logs(State(state): State<Arc<RwLock<AppState>>>) -> Json<Vec<crate::state::LogMessage>> {
     let s = state.read().await;
     Json(s.log_messages.clone())
 }
 
 
+#[utoipa::path(
+    get,
+    path = "/health",
+    tag = "health",
+    responses(
+        (status = 200, description = "Service is healthy", body = serde_json::Value),
+    )
+)]
 async fn health_check() -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "status": "ok",
