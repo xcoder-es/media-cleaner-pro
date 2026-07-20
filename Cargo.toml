@@ -11,6 +11,7 @@ repository = "https://github.com/capintobe/MediaCleaner"
 resolver = "2"
 members = [
     "packages/mc-core",
+    "packages/mc-infra",
 ]
 
 [dependencies]
