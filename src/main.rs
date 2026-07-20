@@ -15,8 +15,59 @@ use mc_infra::image::ImageRsDecoder;
 use mc_infra::notify::InMemoryNotifier;
 use mc_infra::sqlite::SqliteJobRepo;
 
+const DEFAULT_ENV_TEMPLATE: &str = r#"# MediaCleaner Pro Configuration
+RUST_LOG=info
+SERVER_HOST=0.0.0.0
+SERVER_PORT=8080
+
+# Paths
+SOURCE_DIR=./data/source
+DEST_DIR=./data/output
+
+# Processing
+HAMMING_THRESHOLD=4
+MIN_WIDTH=100
+MIN_HEIGHT=100
+WORKER_THREADS=0
+
+# Temporal (optional)
+TEMPORAL_HOST=localhost:7233
+TEMPORAL_NAMESPACE=default
+TEMPORAL_TASK_QUEUE=mediacleaner
+
+# Supabase (optional)
+SUPABASE_URL=
+SUPABASE_KEY=
+"#;
+
+fn auto_init() {
+    let dotenv_path = std::path::Path::new(".env");
+    if !dotenv_path.exists() {
+        if let Err(e) = std::fs::write(dotenv_path, DEFAULT_ENV_TEMPLATE) {
+            eprintln!("Warning: could not create .env: {}", e);
+        } else {
+            let abs = std::fs::canonicalize(dotenv_path)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| ".env".to_string());
+            println!("First run — created .env at {abs}. Edit it to configure source/dest directories.");
+        }
+    }
+
+    let dirs = ["./data/source", "./data/output"];
+    for dir in dirs {
+        let path = std::path::Path::new(dir);
+        if !path.exists() {
+            if let Err(e) = std::fs::create_dir_all(path) {
+                eprintln!("Warning: could not create {dir}: {e}");
+            }
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    auto_init();
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
