@@ -1,0 +1,89 @@
+---
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>{title}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style is:global>
+    :root {
+      --mc-bg: #0a0a0f;
+      --mc-bg-card: #12121a;
+      --mc-bg-elevated: #1a1a25;
+      --mc-border: #2a2a3a;
+      --mc-primary: #00d4aa;
+      --mc-primary-dim: #00d4aa33;
+      --mc-accent: #6366f1;
+      --mc-text: #e2e8f0;
+      --mc-text-muted: #94a3b8;
+      --mc-text-dim: #64748b;
+    }
+
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--mc-border) var(--mc-bg);
+    }
+
+    *::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    *::-webkit-scrollbar-track {
+      background: var(--mc-bg);
+    }
+
+    *::-webkit-scrollbar-thumb {
+      background: var(--mc-border);
+      border-radius: 3px;
+    }
+
+    *::-webkit-scrollbar-thumb:hover {
+      background: var(--mc-text-dim);
+    }
+
+    body {
+      background: var(--mc-bg);
+      color: var(--mc-text);
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .glass {
+      background: rgba(18, 18, 26, 0.8);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(42, 42, 58, 0.6);
+    }
+
+    .glow-primary {
+      box-shadow: 0 0 20px rgba(0, 212, 170, 0.15), 0 0 40px rgba(0, 212, 170, 0.05);
+    }
+
+    .text-gradient {
+      background: linear-gradient(135deg, #00d4aa 0%, #6366f1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .progress-glow {
+      box-shadow: 0 0 10px rgba(0, 212, 170, 0.3), 0 0 20px rgba(0, 212, 170, 0.1);
+    }
+  </style>
+</head>
+<body class="min-h-screen antialiased">
+  <slot />
+</body>
+</html>

@@ -1,0 +1,10 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Dashboard from '../components/Dashboard';
+---
+
+<Layout title="MediaCleaner Pro">
+  <main class="min-h-screen bg-mc-bg">
+    <Dashboard client:load />
+  </main>
+</Layout>

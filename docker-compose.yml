@@ -1,0 +1,80 @@
+services:
+  postgresql:
+    image: postgres:16-alpine
+    container_name: mc-postgresql
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - mediacleaner
+
+  temporal:
+    image: temporalio/auto-setup:1.24.2
+    container_name: mc-temporal
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgresql
+    ports:
+      - "7233:7233"
+      - "8233:8233"
+    networks:
+      - mediacleaner
+
+  temporal-ui:
+    image: temporalio/ui:2.51.1
+    container_name: mc-temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:4321
+      - TEMPORAL_UI_PORT=8080
+    ports:
+      - "8080:8080"
+    networks:
+      - mediacleaner
+
+  mediacleaner-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mc-api
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    environment:
+      - RUST_LOG=info
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8080
+      - SOURCE_DIR=/data/source
+      - DEST_DIR=/data/output
+      - TEMPORAL_HOST=temporal:7233
+    volumes:
+      - ./data:/data
+    depends_on:
+      - temporal
+    networks:
+      - mediacleaner
+
+volumes:
+  pgdata:
+
+networks:
+  mediacleaner:
+    driver: bridge

@@ -1,0 +1,60 @@
+[package]
+name = "mediacleaner-pro"
+version = "2.0.0"
+edition = "2021"
+authors = ["Carlos Pinto <capintobe@gmail.com>"]
+description = "MediaCleaner Pro - Advanced perceptual duplicate removal with 10-stage pipeline"
+license = "MIT"
+repository = "https://github.com/capintobe/MediaCleaner"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.38", features = ["full"] }
+tokio-stream = "0.1"
+
+# Web framework
+axum = { version = "0.7", features = ["ws"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "fs", "trace"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Image processing
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "bmp", "webp", "gif"] }
+rayon = "1.10"
+
+# Crypto
+sha2 = "0.10"
+
+# File system
+walkdir = "2.5"
+
+# Time & IDs
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.9", features = ["v4", "serde"] }
+
+# Database
+rusqlite = { version = "0.31", features = ["bundled", "chrono", "uuid"] }
+
+# HTTP client (for Supabase integration)
+reqwest = { version = "0.12", features = ["json"], optional = true }
+
+# Utilities
+thiserror = "1.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dotenvy = "0.15"
+async-stream = "0.3"
+
+[features]
+default = []
+supabase = ["dep:reqwest"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
