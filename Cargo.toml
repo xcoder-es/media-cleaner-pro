@@ -52,6 +52,10 @@ reqwest = { version = "0.12", features = ["json"], optional = true }
 mc-core = { path = "packages/mc-core", features = ["schema"] }
 mc-infra = { path = "packages/mc-infra" }
 
+# Embedded frontend
+rust-embed = "8"
+mime_guess = "2"
+
 # OpenAPI
 utoipa = { version = "5", features = ["axum_extras"] }
 
