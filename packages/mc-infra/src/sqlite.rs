@@ -1,11 +1,13 @@
 use std::path::Path;
+use std::sync::Mutex;
 
 use async_trait::async_trait;
-use mc_core::{DomainError, JobRepository, Job, StageInfo, ProcessingStats};
+use mc_core::{DomainError, JobRepository, Job};
 use rusqlite::Connection;
 
 pub struct SqliteJobRepo {
-    conn: Connection,
+    #[allow(dead_code)]
+    conn: Mutex<Connection>,
 }
 
 impl SqliteJobRepo {
@@ -18,7 +20,7 @@ impl SqliteJobRepo {
 
         Self::init_tables(&conn)?;
 
-        Ok(SqliteJobRepo { conn })
+        Ok(SqliteJobRepo { conn: Mutex::new(conn) })
     }
 
     fn init_tables(conn: &Connection) -> Result<(), DomainError> {
@@ -72,9 +74,6 @@ impl SqliteJobRepo {
         Ok(())
     }
 
-    pub fn conn(&self) -> &Connection {
-        &self.conn
-    }
 }
 
 #[async_trait]

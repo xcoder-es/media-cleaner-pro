@@ -43,6 +43,10 @@ pub trait ExactHasher: Send + Sync {
     fn compute_sha256(&self, data: &[u8]) -> Result<String, DomainError>;
 }
 
+pub trait ImageDecoder: Send + Sync {
+    fn decode(&self, data: &[u8]) -> Result<ImageInfo, DomainError>;
+}
+
 pub trait PipelineStage: Send + Sync {
     fn name(&self) -> &str;
     fn description(&self) -> &str;

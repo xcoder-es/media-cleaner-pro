@@ -4,7 +4,6 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use serde::Deserialize;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -28,11 +27,6 @@ pub fn create_routes(state: Arc<RwLock<AppState>>) -> Router {
         .route("/api/browse", get(browse_directory))
         .route("/health", get(health_check))
         .with_state(state)
-}
-
-#[derive(Deserialize)]
-struct BrowseParams {
-    path: Option<String>,
 }
 
 #[derive(serde::Serialize)]
