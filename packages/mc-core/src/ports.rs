@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::domain::*;
 use crate::error::DomainError;
@@ -32,6 +32,11 @@ pub trait JobRepository: Send + Sync {
     async fn update_job(&self, job: &Job) -> Result<(), DomainError>;
     async fn list_jobs(&self, user_id: &str, limit: usize) -> Result<Vec<Job>, DomainError>;
     async fn delete_job(&self, id: &str) -> Result<(), DomainError>;
+}
+
+#[async_trait]
+pub trait FileScanner: Send + Sync {
+    async fn scan(&self, path: &Path, extensions: &[&str]) -> Result<Vec<PathBuf>, DomainError>;
 }
 
 pub trait ImageHasher: Send + Sync {
