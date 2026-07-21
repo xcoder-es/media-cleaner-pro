@@ -29,7 +29,7 @@ impl StateMachine {
             .unwrap_or_default();
         if let Some(stage) = state.stages.get_mut(stage_idx) {
             stage.status = StageStatus::Running;
-            stage.started_at = Some(Utc::now().to_rfc3339());
+            stage.started_at = Some(Utc::now());
         }
         Self::log(state, &stage_name, format!("Stage started: {}", stage_name));
     }
@@ -68,7 +68,7 @@ impl StateMachine {
         if let Some(stage) = state.stages.get_mut(stage_idx) {
             stage.status = StageStatus::Completed;
             stage.progress = 100.0;
-            stage.completed_at = Some(Utc::now().to_rfc3339());
+            stage.completed_at = Some(Utc::now());
         }
         Self::log(
             state,

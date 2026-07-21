@@ -28,10 +28,11 @@ pub struct DirEntry {
 #[async_trait]
 pub trait JobRepository: Send + Sync {
     async fn create_job(&self, job: &Job) -> Result<(), DomainError>;
-    async fn get_job(&self, id: &str) -> Result<Option<Job>, DomainError>;
+    async fn get_job(&self, id: &JobId) -> Result<Option<Job>, DomainError>;
     async fn update_job(&self, job: &Job) -> Result<(), DomainError>;
-    async fn list_jobs(&self, user_id: &str, limit: usize) -> Result<Vec<Job>, DomainError>;
-    async fn delete_job(&self, id: &str) -> Result<(), DomainError>;
+    async fn list_jobs(&self, user_id: &UserId, limit: usize) -> Result<Vec<Job>, DomainError>;
+    async fn delete_job(&self, id: &JobId) -> Result<(), DomainError>;
+    async fn query_by_team(&self, team_id: &TeamId) -> Result<Vec<Job>, DomainError>;
 }
 
 #[async_trait]
@@ -88,7 +89,7 @@ pub enum PipelineEvent {
         results: StageResult,
     },
     JobCompleted {
-        job_id: String,
+        job_id: JobId,
     },
     JobPaused,
     JobResumed,
