@@ -1,6 +1,7 @@
 pub mod api;
 pub mod config;
 pub mod frontend;
+pub mod pipeline;
 pub mod processing;
 pub mod state;
 pub mod temporal;
