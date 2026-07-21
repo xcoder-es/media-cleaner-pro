@@ -17,7 +17,7 @@ use mc_infra::sqlite::SqliteJobRepo;
 
 const DEFAULT_ENV_TEMPLATE: &str = r#"# MediaCleaner Pro Configuration
 RUST_LOG=info
-SERVER_HOST=0.0.0.0
+SERVER_HOST=127.0.0.1
 SERVER_PORT=8080
 
 # Paths
@@ -121,8 +121,8 @@ async fn main() -> anyhow::Result<()> {
     let addr: SocketAddr = format!("{}:{}", config.server_host, config.server_port)
         .parse()?;
 
-    tracing::info!("MediaCleaner Pro ready at http://{}", addr);
-    tracing::info!("Open the frontend to start processing");
+    tracing::info!("MediaCleaner Pro ready at http://localhost:{}", config.server_port);
+    tracing::info!("Open http://localhost:{}/ in your browser to start processing", config.server_port);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;

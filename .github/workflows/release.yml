@@ -51,6 +51,24 @@ jobs:
           cp "target/${{ matrix.target }}/release/mediacleaner-pro${{ matrix.ext }}" \
              "${{ matrix.asset_name }}${{ matrix.ext }}"
 
+      - name: Submit to SignPath.io (Windows only)
+        if: matrix.os == 'windows-2022'
+        uses: signpath/github-sign-action@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORG_ID }}
+          project-slug: media-cleaner-pro
+          signing-policy-slug: release-signing
+          input-artifact: ${{ matrix.asset_name }}${{ matrix.ext }}
+          output-artifact: ${{ matrix.asset_name }}-signed${{ matrix.ext }}
+
+      - name: Rename signed artifact (Windows only)
+        if: matrix.os == 'windows-2022'
+        shell: bash
+        run: |
+          mv "${{ matrix.asset_name }}-signed${{ matrix.ext }}" \
+             "${{ matrix.asset_name }}${{ matrix.ext }}"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
