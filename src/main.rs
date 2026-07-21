@@ -54,10 +54,10 @@ fn auto_init() {
     let dirs = ["./data/source", "./data/output"];
     for dir in dirs {
         let path = std::path::Path::new(dir);
-        if !path.exists() {
-            if let Err(e) = std::fs::create_dir_all(path) {
-                eprintln!("Warning: could not create {dir}: {e}");
-            }
+        if !path.exists()
+            && let Err(e) = std::fs::create_dir_all(path)
+        {
+            eprintln!("Warning: could not create {dir}: {e}");
         }
     }
 }

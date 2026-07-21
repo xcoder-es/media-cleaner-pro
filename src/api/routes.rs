@@ -1,8 +1,8 @@
 use axum::{
-    extract::{Query, State},
-    response::{sse::Event, Sse},
-    routing::{get, post},
     Json, Router,
+    extract::{Query, State},
+    response::{Sse, sse::Event},
+    routing::{get, post},
 };
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::{
     api::models::*,
-    state::{machine::StateMachine, AppState, LogMessage, ProcessingStats, StageInfo, StageStatus},
+    state::{AppState, LogMessage, ProcessingStats, StageInfo, StageStatus, machine::StateMachine},
 };
 
 use mc_core::PipelineConfig;
@@ -44,7 +44,7 @@ pub fn create_routes(state: Arc<RwLock<AppState>>) -> Router {
     info(
         title = "MediaCleaner Pro API",
         description = "REST API for MediaCleaner Pro — perceptual duplicate image removal pipeline",
-        version = "0.1.2-alpha",
+        version = "0.1.3-alpha",
         license(name = "MIT")
     ),
     tags(

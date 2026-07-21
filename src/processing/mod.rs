@@ -2,10 +2,10 @@ pub mod duplicate;
 pub mod hash;
 pub mod stages;
 
-pub use mc_core::{format_duration, is_image_file, ImageMetadata, StageResult};
+pub use mc_core::{ImageMetadata, StageResult, format_duration, is_image_file};
 
-use crate::state::machine::StateMachine;
 use crate::state::AppState;
+use crate::state::machine::StateMachine;
 use std::future::Future;
 use std::sync::Arc;
 use tokio::sync::RwLock;

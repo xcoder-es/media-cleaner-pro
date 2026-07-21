@@ -10,12 +10,33 @@ fn main() {
 
     std::fs::create_dir_all(dist).expect("failed to create frontend/dist");
 
-    let has_node = std::process::Command::new("node")
+    let has_bun = std::process::Command::new("bun")
         .arg("--version")
         .output()
         .is_ok();
 
-    if has_node {
+    if has_bun {
+        let res = std::process::Command::new("bun")
+            .args(["install"])
+            .current_dir("frontend")
+            .status();
+        if res.map(|s| s.success()).unwrap_or(false) {
+            let res = std::process::Command::new("bun")
+                .args(["run", "build"])
+                .current_dir("frontend")
+                .status();
+            if res.map(|s| s.success()).unwrap_or(false) {
+                return;
+            }
+        }
+    }
+
+    let has_npm = std::process::Command::new("npm")
+        .arg("--version")
+        .output()
+        .is_ok();
+
+    if has_npm {
         let res = std::process::Command::new("npm")
             .args(["install"])
             .current_dir("frontend")
