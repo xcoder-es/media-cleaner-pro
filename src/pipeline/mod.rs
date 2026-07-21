@@ -5,6 +5,7 @@ use std::time::Instant;
 
 use mc_core::*;
 use tokio::sync::{Semaphore, mpsc};
+use tokio_util::sync::CancellationToken;
 use walkdir::WalkDir;
 
 use crate::processing::duplicate::DuplicateDetector;
@@ -13,7 +14,10 @@ use crate::state::{AppState, machine::StateMachine};
 
 type ScanItem = (std::path::PathBuf, Vec<u8>);
 
-pub async fn run_streaming_pipeline(state: Arc<tokio::sync::RwLock<AppState>>) {
+pub async fn run_streaming_pipeline(
+    state: Arc<tokio::sync::RwLock<AppState>>,
+    cancel_token: CancellationToken,
+) {
     let (source_dir, dest_dir, threshold, min_width, min_height) = {
         let s = state.read().await;
         (
@@ -58,6 +62,12 @@ pub async fn run_streaming_pipeline(state: Arc<tokio::sync::RwLock<AppState>>) {
     if total == 0 {
         let mut s = state.write().await;
         StateMachine::complete_stage(&mut s, 0);
+        StateMachine::complete_job(&mut s);
+        return;
+    }
+
+    if cancel_token.is_cancelled() {
+        let mut s = state.write().await;
         StateMachine::complete_job(&mut s);
         return;
     }
@@ -155,6 +165,10 @@ pub async fn run_streaming_pipeline(state: Arc<tokio::sync::RwLock<AppState>>) {
         let mut processed: usize = 0;
 
         while let Some(meta) = meta_rx.recv().await {
+            if cancel_token.is_cancelled() {
+                break;
+            }
+
             let path = meta.path.clone();
 
             // Stage 0: Exact duplicate
