@@ -2,6 +2,30 @@ use mc_core::*;
 use std::collections::HashSet;
 use std::path::Path;
 
+#[test]
+fn test_job_id_serde_roundtrip() {
+    let id = JobId("abc".to_string());
+    let json = serde_json::to_string(&id).unwrap();
+    let deserialized: JobId = serde_json::from_str(&json).unwrap();
+    assert_eq!(id, deserialized);
+}
+
+#[test]
+fn test_user_id_serde_roundtrip() {
+    let id = UserId("user-1".to_string());
+    let json = serde_json::to_string(&id).unwrap();
+    let deserialized: UserId = serde_json::from_str(&json).unwrap();
+    assert_eq!(id, deserialized);
+}
+
+#[test]
+fn test_team_id_serde_roundtrip() {
+    let id = TeamId("team-42".to_string());
+    let json = serde_json::to_string(&id).unwrap();
+    let deserialized: TeamId = serde_json::from_str(&json).unwrap();
+    assert_eq!(id, deserialized);
+}
+
 fn make_meta(
     filename: &str,
     width: u32,
@@ -51,6 +75,30 @@ fn test_job_id_eq_hash() {
     set.insert(a);
     assert!(set.contains(&JobId("same".to_string())));
     assert!(!set.contains(&JobId("nope".to_string())));
+}
+
+#[test]
+fn test_user_id_eq_hash() {
+    let a = UserId("u1".to_string());
+    let b = UserId("u1".to_string());
+    let c = UserId("u2".to_string());
+    assert_eq!(a, b);
+    assert_ne!(a, c);
+    let mut set = HashSet::new();
+    set.insert(a);
+    assert!(set.contains(&UserId("u1".to_string())));
+}
+
+#[test]
+fn test_team_id_eq_hash() {
+    let a = TeamId("t1".to_string());
+    let b = TeamId("t1".to_string());
+    let c = TeamId("t2".to_string());
+    assert_eq!(a, b);
+    assert_ne!(a, c);
+    let mut set = HashSet::new();
+    set.insert(a);
+    assert!(set.contains(&TeamId("t1".to_string())));
 }
 
 #[test]
