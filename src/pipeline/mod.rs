@@ -180,6 +180,8 @@ pub async fn run_streaming_pipeline(
                 }
                 r
             };
+            let is_exact_dup = !result0.passed;
+
             results_map.entry(path.clone()).or_default().push(result0);
 
             // Stage 1: Perceptual duplicate
@@ -189,6 +191,8 @@ pub async fn run_streaming_pipeline(
                 let r = StageProcessor::perceptual_duplicate(&meta, &dupes);
                 (r, dupes)
             };
+            let is_perceptual_dup = !_dup_paths.is_empty();
+
             results_map.entry(path.clone()).or_default().push(result1);
 
             // Stages 2-9: Pure functions
@@ -224,6 +228,15 @@ pub async fn run_streaming_pipeline(
                 .entry(path.clone())
                 .or_default()
                 .push(StageProcessor::quality_ranking(&meta));
+
+            {
+                let mut s = state.write().await;
+                if is_exact_dup || is_perceptual_dup {
+                    s.stats.duplicate_count += 1;
+                } else {
+                    s.stats.unique_count += 1;
+                }
+            }
 
             meta_map.insert(meta.path.clone(), meta);
             processed += 1;
