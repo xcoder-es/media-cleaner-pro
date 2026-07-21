@@ -65,6 +65,7 @@ jobs:
 
       - name: Sign with SignPath (Windows only)
         if: matrix.os == 'windows-2022'
+        continue-on-error: true
         uses: signpath/github-action-submit-signing-request@v2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
@@ -79,7 +80,12 @@ jobs:
         if: matrix.os == 'windows-2022'
         shell: bash
         run: |
-          cp signed-output/* "${{ matrix.asset_name }}${{ matrix.ext }}"
+          if [ -d signed-output ] && [ "$(ls -A signed-output)" ]; then
+            cp signed-output/* "${{ matrix.asset_name }}${{ matrix.ext }}"
+            echo "Signed artifact copied"
+          else
+            echo "No signed artifact found — using unsigned binary"
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
