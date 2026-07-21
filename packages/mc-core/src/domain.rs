@@ -1,5 +1,49 @@
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::path::Path;
+
+macro_rules! newtype_id {
+    ($name:ident) => {
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
+        pub struct $name(pub String);
+
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl AsRef<str> for $name {
+            fn as_ref(&self) -> &str {
+                &self.0
+            }
+        }
+
+        impl std::ops::Deref for $name {
+            type Target = str;
+            fn deref(&self) -> &str {
+                &self.0
+            }
+        }
+
+        impl From<String> for $name {
+            fn from(s: String) -> Self {
+                $name(s)
+            }
+        }
+
+        impl From<&str> for $name {
+            fn from(s: &str) -> Self {
+                $name(s.to_string())
+            }
+        }
+    };
+}
+
+newtype_id!(JobId);
+newtype_id!(UserId);
+newtype_id!(TeamId);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageMetadata {
