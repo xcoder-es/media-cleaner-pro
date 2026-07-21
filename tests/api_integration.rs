@@ -2,6 +2,7 @@ use mc_infra::fs::NativeFileSystem;
 use mc_infra::hash::{DHashHasher, Sha256Hasher};
 use mc_infra::image::ImageRsDecoder;
 use mc_infra::notify::InMemoryNotifier;
+use mc_infra::scanner::NativeFileScanner;
 use mediacleaner_pro::{api::routes::create_routes, state::AppState};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -29,9 +30,10 @@ fn setup(tmp: &std::path::Path) -> Arc<RwLock<AppState>> {
     let dhash = Arc::new(DHashHasher::new());
     let decoder = Arc::new(ImageRsDecoder::new());
     let notifier = Arc::new(InMemoryNotifier::new());
+    let scanner = Arc::new(NativeFileScanner);
 
     Arc::new(RwLock::new(AppState::new(
-        config, fs, hasher, dhash, decoder, notifier,
+        config, fs, scanner, hasher, dhash, decoder, notifier,
     )))
 }
 

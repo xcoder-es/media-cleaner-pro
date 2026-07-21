@@ -1,12 +1,13 @@
 pub mod db;
 pub mod machine;
 
-use mc_core::{ExactHasher, FileSystem, ImageDecoder, ImageHasher, NotificationBus};
+use mc_core::{ExactHasher, FileScanner, FileSystem, ImageDecoder, ImageHasher, NotificationBus};
 pub use mc_core::{LogMessage, ProcessingStats, StageInfo, StageStatus};
 use std::sync::Arc;
 
 pub struct AppContext {
     pub file_system: Arc<dyn FileSystem>,
+    pub file_scanner: Arc<dyn FileScanner>,
     pub exact_hasher: Arc<dyn ExactHasher>,
     pub image_hasher: Arc<dyn ImageHasher>,
     pub image_decoder: Arc<dyn ImageDecoder>,
@@ -30,6 +31,7 @@ impl AppState {
     pub fn new(
         config: crate::config::Config,
         file_system: Arc<dyn FileSystem>,
+        file_scanner: Arc<dyn FileScanner>,
         exact_hasher: Arc<dyn ExactHasher>,
         image_hasher: Arc<dyn ImageHasher>,
         image_decoder: Arc<dyn ImageDecoder>,
@@ -170,6 +172,7 @@ impl AppState {
             config,
             ctx: Arc::new(AppContext {
                 file_system,
+                file_scanner,
                 exact_hasher,
                 image_hasher,
                 image_decoder,
