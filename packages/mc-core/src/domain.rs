@@ -24,6 +24,12 @@ impl From<String> for JobId {
     }
 }
 
+impl From<&str> for JobId {
+    fn from(s: &str) -> Self {
+        JobId(s.to_string())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct UserId(pub String);
@@ -46,6 +52,12 @@ impl From<String> for UserId {
     }
 }
 
+impl From<&str> for UserId {
+    fn from(s: &str) -> Self {
+        UserId(s.to_string())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct TeamId(pub String);
@@ -65,6 +77,12 @@ impl AsRef<str> for TeamId {
 impl From<String> for TeamId {
     fn from(s: String) -> Self {
         TeamId(s)
+    }
+}
+
+impl From<&str> for TeamId {
+    fn from(s: &str) -> Self {
+        TeamId(s.to_string())
     }
 }
 

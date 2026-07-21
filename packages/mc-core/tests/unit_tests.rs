@@ -23,6 +23,50 @@ fn make_meta(
 }
 
 #[test]
+fn test_job_id_display() {
+    let id = JobId("abc-123".to_string());
+    assert_eq!(id.to_string(), "abc-123");
+}
+
+#[test]
+fn test_job_id_from_string() {
+    let id: JobId = "test-id".to_string().into();
+    assert_eq!(id.as_ref(), "test-id");
+}
+
+#[test]
+fn test_job_id_from_str() {
+    let id = JobId::from("hello");
+    assert_eq!(id.as_ref(), "hello");
+}
+
+#[test]
+fn test_job_id_eq_hash() {
+    use std::collections::HashSet;
+    let a = JobId("same".to_string());
+    let b = JobId("same".to_string());
+    let c = JobId("other".to_string());
+    assert_eq!(a, b);
+    assert_ne!(a, c);
+    let mut set = HashSet::new();
+    set.insert(a);
+    assert!(set.contains(&JobId("same".to_string())));
+    assert!(!set.contains(&JobId("nope".to_string())));
+}
+
+#[test]
+fn test_user_id_display() {
+    let id = UserId("user-1".to_string());
+    assert_eq!(id.to_string(), "user-1");
+}
+
+#[test]
+fn test_team_id_display() {
+    let id = TeamId("team-42".to_string());
+    assert_eq!(id.to_string(), "team-42");
+}
+
+#[test]
 fn test_is_image_file_valid_extensions() {
     for ext in &["jpg", "jpeg", "png", "bmp", "webp", "gif", "tiff", "tif"] {
         assert!(
