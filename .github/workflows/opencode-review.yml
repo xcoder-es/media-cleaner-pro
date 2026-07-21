@@ -31,7 +31,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: opencode/deepseek-v4-flash-free
-          variant: max
           agent: build
           use_github_token: true
           prompt: |
@@ -43,25 +42,3 @@ jobs:
             - Verify tests are included for new functionality
             - Suggest specific improvements with file paths and line numbers
             Be constructive and concise. Focus on the most impactful issues.
-
-      - name: Convert comment to formal PR review
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          REPO=${{ github.repository }}
-
-          # The opencode action posts the review as an issue comment.
-          # Find the latest comment from github-actions bot with a review header,
-          # delete it, and re-post as a formal PR review.
-          sleep 5
-          COMMENT=$(gh api "/repos/$REPO/issues/$PR_NUMBER/comments" \
-            --jq '[.[] | select(.user.login == "github-actions")] | last | select(.body | startswith("## Review:"))')
-          BODY=$(echo "$COMMENT" | jq -r '.body // empty')
-          COMMENT_ID=$(echo "$COMMENT" | jq -r '.id // empty')
-
-          if [ -n "$BODY" ]; then
-            gh api -X DELETE "/repos/$REPO/issues/comments/$COMMENT_ID"
-            gh pr review "$PR_NUMBER" --comment --body "$BODY"
-          fi
