@@ -226,6 +226,35 @@ cargo test --workspace
 # Requires repo secret: OPENCODE_API_KEY (from opencode.ai/auth)
 ```
 
+## Agentic Development Lifecycle
+
+### Non-Negotiable Flow
+
+Every feature, fix, or refactor follows this exact sequence:
+
+1. **Issue created** — One GitHub issue per unit of work, linked to the roadmap project
+2. **Branch from main** — `git checkout -b <issue-number>-<short-description>`
+3. **Implement** — Make changes, verify with `cargo check --workspace` and `cargo test --workspace`
+4. **Commit + Push** — Conventional commit message with `Issue: #<number>` footer
+5. **Open PR** — With descriptive body linking to the issue. The `opencode-review` workflow auto-triggers.
+6. **Review** — opencode reviews every PR. All review comments MUST be answered before merging:
+   - Fix the issue if valid, then reply explaining what was done
+   - If the issue is by design (scoped to a later PR), reply explaining the scope
+   - If the issue is disputed, reply with reasoning
+   - "LGTM" or "addressed" do not count as answers — each comment needs a substantive reply
+7. **Re-review** — After pushing fixes, the review workflow re-runs automatically. Repeat step 6 until all comments are resolved.
+8. **Merge** — Squash-merge to `main`, delete the branch. Only merge when all review comments have replies and CI is green.
+9. **Next issue** — Pull latest `main`, repeat from step 2.
+
+### Rules
+
+- **One PR per issue** — No bundling unrelated work
+- **Sequential ordering** — Issues are ordered; each builds on the prior. Do not skip ahead.
+- **Squash-merge only** — No merge commits, no rebase. Keep `main` linear.
+- **Review is mandatory** — Even trivial PRs get reviewed. The reviewer may approve quickly, but it must post a comment.
+- **No merging with unanswered comments** — Every review comment must have a reply from the author before the merge button is pressed.
+- **`cargo fmt` before push** — `.rs` files may have trailing newline stripped in CI; always run `cargo fmt` to avoid false CI failures.
+
 ## Conventions
 
 - **Commits**: Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`)
