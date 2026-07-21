@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 macro_rules! newtype_id {
     ($name:ident) => {
@@ -76,8 +76,8 @@ pub struct StageInfo {
     pub progress: f64,
     pub processed: usize,
     pub total: usize,
-    pub started_at: Option<String>,
-    pub completed_at: Option<String>,
+    pub started_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
     pub error: Option<String>,
 }
 
@@ -92,7 +92,7 @@ pub enum StageStatus {
     Skipped,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct ProcessingStats {
     pub current_file: Option<String>,
@@ -198,16 +198,16 @@ pub struct ImageInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Job {
-    pub id: String,
-    pub user_id: Option<String>,
-    pub team_id: Option<String>,
-    pub source_dir: String,
-    pub dest_dir: String,
+    pub id: JobId,
+    pub user_id: Option<UserId>,
+    pub team_id: Option<TeamId>,
+    pub source_dir: PathBuf,
+    pub dest_dir: PathBuf,
     pub config: PipelineConfig,
     pub stages: Vec<StageInfo>,
     pub stats: ProcessingStats,
     pub status: JobStatus,
-    pub created_at: String,
-    pub completed_at: Option<String>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
     pub sync_status: SyncStatus,
 }

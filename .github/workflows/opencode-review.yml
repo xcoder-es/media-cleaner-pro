@@ -16,7 +16,7 @@ jobs:
       id-token: write
       contents: read
       pull-requests: write
-      issues: read
+      issues: write
 
     steps:
       - uses: actions/checkout@v6
@@ -24,6 +24,7 @@ jobs:
           persist-credentials: false
 
       - name: Run OpenCode Review
+        id: opencode
         uses: anomalyco/opencode/github@latest
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
@@ -33,6 +34,7 @@ jobs:
           agent: build
           use_github_token: true
           prompt: |
+            REVIEW_START_MARKER
             Review this pull request based on the project's conventions in AGENTS.md:
             - Check for code quality issues, bugs, and security concerns
             - Verify the code follows the hexagonal architecture patterns
@@ -41,3 +43,28 @@ jobs:
             - Verify tests are included for new functionality
             - Suggest specific improvements with file paths and line numbers
             Be constructive and concise. Focus on the most impactful issues.
+
+      - name: Convert comment to formal PR review
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          REPO=${{ github.repository }}
+
+          # The opencode action posts the review as an issue comment.
+          # Find it, delete it, and re-post as a formal PR review.
+          sleep 5
+          COMMENT=$(gh api "/repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[-1] | select(.body | startswith("REVIEW_START_MARKER"))')
+          BODY=$(echo "$COMMENT" | jq -r '.body // empty')
+          COMMENT_ID=$(echo "$COMMENT" | jq -r '.id // empty')
+
+          if [ -n "$BODY" ]; then
+            # Strip the marker from the body
+            CLEAN_BODY="${BODY#REVIEW_START_MARKER}"
+            # Delete the comment
+            gh api -X DELETE "/repos/$REPO/issues/comments/$COMMENT_ID"
+            # Post as formal PR review
+            gh pr review "$PR_NUMBER" --comment --body "$CLEAN_BODY"
+          fi
