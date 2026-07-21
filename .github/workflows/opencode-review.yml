@@ -34,7 +34,6 @@ jobs:
           agent: build
           use_github_token: true
           prompt: |
-            REVIEW_START_MARKER
             Review this pull request based on the project's conventions in AGENTS.md:
             - Check for code quality issues, bugs, and security concerns
             - Verify the code follows the hexagonal architecture patterns
@@ -53,18 +52,14 @@ jobs:
           REPO=${{ github.repository }}
 
           # The opencode action posts the review as an issue comment.
-          # Find it, delete it, and re-post as a formal PR review.
+          # Find it by the "## Review:" header, delete it, and re-post as formal PR review.
           sleep 5
           COMMENT=$(gh api "/repos/$REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[-1] | select(.body | startswith("REVIEW_START_MARKER"))')
+            --jq '.[-1] | select(.body | startswith("## Review:"))')
           BODY=$(echo "$COMMENT" | jq -r '.body // empty')
           COMMENT_ID=$(echo "$COMMENT" | jq -r '.id // empty')
 
           if [ -n "$BODY" ]; then
-            # Strip the marker from the body
-            CLEAN_BODY="${BODY#REVIEW_START_MARKER}"
-            # Delete the comment
             gh api -X DELETE "/repos/$REPO/issues/comments/$COMMENT_ID"
-            # Post as formal PR review
-            gh pr review "$PR_NUMBER" --comment --body "$CLEAN_BODY"
+            gh pr review "$PR_NUMBER" --comment --body "$BODY"
           fi

@@ -231,9 +231,7 @@ fn test_sqlite_query_by_team_returns_correct_jobs() {
     let _ = std::fs::remove_file(&tmp);
 
     let repo = SqliteJobRepo::new(&tmp).unwrap();
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .build()
-        .unwrap();
+    let rt = rt();
 
     let team_a = TeamId::from("team-alpha".to_string());
     let team_b = TeamId::from("team-beta".to_string());
@@ -268,9 +266,7 @@ fn test_sqlite_list_jobs_all_vs_by_user() {
     let _ = std::fs::remove_file(&tmp);
 
     let repo = SqliteJobRepo::new(&tmp).unwrap();
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .build()
-        .unwrap();
+    let rt = rt();
 
     let uid = UserId::from("user-42".to_string());
 

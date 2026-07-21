@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use mc_core::{DomainError, Job, JobId, JobRepository, JobStatus, SyncStatus, TeamId, UserId};
+use mc_core::{DomainError, Job, JobId, JobRepository, TeamId, UserId};
 use rusqlite::Connection;
 
 pub struct SqliteJobRepo {
@@ -45,7 +45,8 @@ impl SqliteJobRepo {
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
             stats: serde_json::from_str(&stats_str)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-            status: serde_json::from_str(&status_str).unwrap_or(JobStatus::Pending),
+            status: serde_json::from_str(&status_str)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
             created_at: chrono::DateTime::parse_from_rfc3339(&created_at_str)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?
                 .with_timezone(&chrono::Utc),
@@ -57,7 +58,8 @@ impl SqliteJobRepo {
                 })
                 .transpose()
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-            sync_status: serde_json::from_str(&sync_status_str).unwrap_or(SyncStatus::NotSynced),
+            sync_status: serde_json::from_str(&sync_status_str)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
         })
     }
 
