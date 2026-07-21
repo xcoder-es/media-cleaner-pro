@@ -9,6 +9,7 @@ impl StateMachine {
         state.is_running = true;
         state.is_paused = false;
         state.log_messages.clear();
+        state.job_started_at = Some(Utc::now().timestamp());
 
         for stage in &mut state.stages {
             stage.status = StageStatus::Pending;
@@ -47,7 +48,12 @@ impl StateMachine {
             }
         }
         if total > 0 {
-            state.stats.speed = processed as f64 / (Utc::now().timestamp() as f64).max(1.0);
+            let elapsed = if let Some(start) = state.job_started_at {
+                (Utc::now().timestamp() - start).max(1)
+            } else {
+                1
+            };
+            state.stats.speed = processed as f64 / elapsed as f64;
             let remaining = total.saturating_sub(processed);
             state.stats.eta_seconds = (remaining as f64 / state.stats.speed.max(0.1)) as u64;
         }

@@ -46,6 +46,13 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
 
+      - name: Build frontend
+        shell: bash
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
 

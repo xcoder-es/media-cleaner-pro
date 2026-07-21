@@ -170,9 +170,13 @@ async fn start_job(
     let mut s = state.write().await;
     let job_id = Uuid::new_v4().to_string();
 
-    // Update config with request params
-    s.config.source_dir = req.source_dir;
-    s.config.dest_dir = req.dest_dir;
+    // Update config with request params (keep existing values when empty)
+    if !req.source_dir.is_empty() {
+        s.config.source_dir = req.source_dir;
+    }
+    if !req.dest_dir.is_empty() {
+        s.config.dest_dir = req.dest_dir;
+    }
     if let Some(threshold) = req.hamming_threshold {
         s.config.hamming_threshold = threshold;
     }
