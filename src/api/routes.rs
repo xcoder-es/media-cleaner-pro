@@ -18,6 +18,7 @@ use crate::{
     state::{AppState, LogMessage, ProcessingStats, StageInfo, StageStatus, machine::StateMachine},
 };
 
+use crate::pipeline::run_streaming_pipeline;
 use mc_core::PipelineConfig;
 
 pub fn create_routes(state: Arc<RwLock<AppState>>) -> Router {
@@ -186,7 +187,7 @@ async fn start_job(
     // Spawn processing task
     let state_clone = Arc::clone(&state);
     tokio::spawn(async move {
-        run_pipeline(state_clone).await;
+        run_streaming_pipeline(state_clone).await;
     });
 
     Json(JobResponse {
@@ -298,6 +299,7 @@ async fn health_check() -> Json<serde_json::Value> {
 }
 
 // The actual pipeline runner
+#[allow(dead_code)]
 pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
     use crate::processing::duplicate::DuplicateDetector;
     use crate::processing::stages::StageProcessor;
