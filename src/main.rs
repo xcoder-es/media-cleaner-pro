@@ -8,6 +8,7 @@ use mc_infra::fs::NativeFileSystem;
 use mc_infra::hash::{DHashHasher, Sha256Hasher};
 use mc_infra::image::ImageRsDecoder;
 use mc_infra::notify::InMemoryNotifier;
+use mc_infra::scanner::NativeFileScanner;
 use mc_infra::sqlite::SqliteJobRepo;
 use mediacleaner_pro::{api::routes::create_routes, config::Config, state::AppState};
 
@@ -87,6 +88,7 @@ async fn main() -> anyhow::Result<()> {
     let image_hasher = Arc::new(DHashHasher::new());
     let image_decoder = Arc::new(ImageRsDecoder::new());
     let notifier = Arc::new(InMemoryNotifier::new());
+    let file_scanner = Arc::new(NativeFileScanner);
 
     if let Ok(repo) = SqliteJobRepo::new(&config.db_path) {
         tracing::info!("Job repository initialized at {}", config.db_path);
@@ -96,6 +98,7 @@ async fn main() -> anyhow::Result<()> {
     let app_state = Arc::new(RwLock::new(AppState::new(
         config.clone(),
         file_system,
+        file_scanner,
         exact_hasher,
         image_hasher,
         image_decoder,
