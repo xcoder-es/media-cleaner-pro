@@ -42,7 +42,6 @@ fn test_job_id_from_str() {
 
 #[test]
 fn test_job_id_eq_hash() {
-    use std::collections::HashSet;
     let a = JobId("same".to_string());
     let b = JobId("same".to_string());
     let c = JobId("other".to_string());
@@ -61,9 +60,33 @@ fn test_user_id_display() {
 }
 
 #[test]
+fn test_user_id_from_string() {
+    let id: UserId = "user-1".to_string().into();
+    assert_eq!(id.as_ref(), "user-1");
+}
+
+#[test]
+fn test_user_id_from_str() {
+    let id = UserId::from("user-1");
+    assert_eq!(id.as_ref(), "user-1");
+}
+
+#[test]
 fn test_team_id_display() {
     let id = TeamId("team-42".to_string());
     assert_eq!(id.to_string(), "team-42");
+}
+
+#[test]
+fn test_team_id_from_string() {
+    let id: TeamId = "team-42".to_string().into();
+    assert_eq!(id.as_ref(), "team-42");
+}
+
+#[test]
+fn test_team_id_from_str() {
+    let id = TeamId::from("team-42");
+    assert_eq!(id.as_ref(), "team-42");
 }
 
 #[test]
