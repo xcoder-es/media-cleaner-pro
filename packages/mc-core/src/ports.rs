@@ -17,14 +17,6 @@ pub trait FileSystem: Send + Sync {
     async fn canonicalize(&self, path: &Path) -> Result<String, DomainError>;
 }
 
-#[derive(Debug, Clone)]
-pub struct DirEntry {
-    pub name: String,
-    pub path: String,
-    pub is_dir: bool,
-    pub size: u64,
-}
-
 #[async_trait]
 pub trait JobRepository: Send + Sync {
     async fn create_job(&self, job: &Job) -> Result<(), DomainError>;

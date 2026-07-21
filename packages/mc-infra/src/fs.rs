@@ -37,7 +37,7 @@ impl FileSystem for NativeFileSystem {
             .map_err(|e| DomainError::OperationFailed(format!("next_entry: {}", e)))?
         {
             let name = entry.file_name().to_string_lossy().to_string();
-            let path = entry.path().to_string_lossy().to_string();
+            let path = entry.path();
             let is_dir = entry.file_type().await.map(|t| t.is_dir()).unwrap_or(false);
             let size = if !is_dir {
                 entry.metadata().await.map(|m| m.len()).unwrap_or(0)
