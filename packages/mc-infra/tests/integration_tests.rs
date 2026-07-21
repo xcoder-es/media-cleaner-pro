@@ -1,3 +1,4 @@
+use chrono::Utc;
 use mc_core::*;
 use mc_infra::fs::NativeFileSystem;
 use mc_infra::hash::{DHashHasher, Sha256Hasher};
@@ -5,7 +6,6 @@ use mc_infra::image::ImageRsDecoder;
 use mc_infra::sqlite::SqliteJobRepo;
 use std::path::Path;
 use std::path::PathBuf;
-use chrono::Utc;
 
 fn rt() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_current_thread()
@@ -248,8 +248,12 @@ fn test_sqlite_query_by_team_returns_correct_jobs() {
 
     let alpha_jobs = rt.block_on(repo.query_by_team(&team_a)).unwrap();
     assert_eq!(alpha_jobs.len(), 2, "team-alpha should have 2 jobs");
-    assert!(alpha_jobs.iter().any(|j| j.id == JobId::from("job1".to_string())));
-    assert!(alpha_jobs.iter().any(|j| j.id == JobId::from("job2".to_string())));
+    assert!(alpha_jobs
+        .iter()
+        .any(|j| j.id == JobId::from("job1".to_string())));
+    assert!(alpha_jobs
+        .iter()
+        .any(|j| j.id == JobId::from("job2".to_string())));
 
     let beta_jobs = rt.block_on(repo.query_by_team(&team_b)).unwrap();
     assert_eq!(beta_jobs.len(), 1, "team-beta should have 1 job");

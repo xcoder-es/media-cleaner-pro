@@ -212,8 +212,9 @@ impl JobRepository for SqliteJobRepo {
                     .map_err(|e| DomainError::StorageError(format!("serialize status: {}", e)))?,
                 job.created_at.to_rfc3339(),
                 job.completed_at.map(|dt| dt.to_rfc3339()),
-                serde_json::to_string(&job.sync_status)
-                    .map_err(|e| DomainError::StorageError(format!("serialize sync_status: {}", e)))?,
+                serde_json::to_string(&job.sync_status).map_err(|e| DomainError::StorageError(
+                    format!("serialize sync_status: {}", e)
+                ))?,
                 job.id.as_ref(),
             ],
         )
@@ -222,7 +223,11 @@ impl JobRepository for SqliteJobRepo {
         Ok(())
     }
 
-    async fn list_jobs(&self, user_id: Option<&UserId>, limit: usize) -> Result<Vec<Job>, DomainError> {
+    async fn list_jobs(
+        &self,
+        user_id: Option<&UserId>,
+        limit: usize,
+    ) -> Result<Vec<Job>, DomainError> {
         let conn = self
             .conn
             .lock()
