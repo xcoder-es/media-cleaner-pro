@@ -25,7 +25,7 @@ jobs:
 
       - name: Run OpenCode Review
         id: opencode
-        uses: anomalyco/opencode/github@latest
+        uses: anomalyco/opencode/github@v1.18.4
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
