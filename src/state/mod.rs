@@ -4,6 +4,7 @@ pub mod machine;
 use mc_core::{ExactHasher, FileScanner, FileSystem, ImageDecoder, ImageHasher, NotificationBus};
 pub use mc_core::{LogMessage, ProcessingStats, StageInfo, StageStatus};
 use std::sync::Arc;
+use tokio_util::sync::CancellationToken;
 
 pub struct AppContext {
     pub file_system: Arc<dyn FileSystem>,
@@ -25,6 +26,7 @@ pub struct AppState {
     pub config: crate::config::Config,
     pub ctx: Arc<AppContext>,
     pub job_started_at: Option<i64>,
+    pub cancel_token: CancellationToken,
 }
 
 impl AppState {
@@ -179,6 +181,11 @@ impl AppState {
                 notifier,
             }),
             job_started_at: None,
+            cancel_token: CancellationToken::new(),
         }
+    }
+
+    pub fn reset_cancel_token(&mut self) {
+        self.cancel_token = CancellationToken::new();
     }
 }

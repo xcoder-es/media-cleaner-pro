@@ -182,12 +182,14 @@ async fn start_job(
         s.config.hamming_threshold = threshold;
     }
 
+    s.reset_cancel_token();
     StateMachine::start_job(&mut s, job_id.clone());
 
     // Spawn processing task
     let state_clone = Arc::clone(&state);
+    let token = s.cancel_token.clone();
     tokio::spawn(async move {
-        run_streaming_pipeline(state_clone).await;
+        run_streaming_pipeline(state_clone, token).await;
     });
 
     Json(JobResponse {
@@ -218,7 +220,10 @@ async fn control_job(
     match req.action.as_str() {
         "pause" => StateMachine::pause_job(&mut s),
         "resume" => StateMachine::resume_job(&mut s),
-        "cancel" => StateMachine::cancel_job(&mut s),
+        "cancel" => {
+            s.cancel_token.cancel();
+            StateMachine::cancel_job(&mut s);
+        }
         _ => {}
     }
 
