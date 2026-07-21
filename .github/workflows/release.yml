@@ -55,38 +55,6 @@ jobs:
           cp "target/${{ matrix.target }}/release/mediacleaner-pro${{ matrix.ext }}" \
              "${{ matrix.asset_name }}${{ matrix.ext }}"
 
-      - name: Upload unsigned artifact (Windows only)
-        if: matrix.os == 'windows-2022'
-        id: upload-unsigned
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.asset_name }}-unsigned
-          path: ${{ matrix.asset_name }}${{ matrix.ext }}
-
-      - name: Sign with SignPath (Windows only)
-        if: matrix.os == 'windows-2022'
-        continue-on-error: true
-        uses: signpath/github-action-submit-signing-request@v2
-        with:
-          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-          organization-id: ${{ secrets.SIGNPATH_ORG_ID }}
-          project-slug: media-cleaner-pro
-          signing-policy-slug: release-signing
-          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
-          wait-for-completion: true
-          output-artifact-directory: signed-output
-
-      - name: Copy signed artifact to expected path (Windows only)
-        if: matrix.os == 'windows-2022'
-        shell: bash
-        run: |
-          if [ -d signed-output ] && [ "$(ls -A signed-output)" ]; then
-            cp signed-output/* "${{ matrix.asset_name }}${{ matrix.ext }}"
-            echo "Signed artifact copied"
-          else
-            echo "No signed artifact found — using unsigned binary"
-          fi
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
