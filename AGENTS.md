@@ -228,11 +228,23 @@ cargo test --workspace
 
 ## Agentic Development Lifecycle
 
-### Non-Negotiable Flow
+### Planning Flow
+
+Every task begins as a plan that gets translated into structured issues:
+
+1. **Plan proposed** — User or agent proposes a feature/fix/refactor with scope
+2. **Codebase analysis** — Agent reviews existing code, dependencies, and conventions
+3. **Issue breakdown** — Agent breaks the plan into ordered, single-unit issues each producing one PR
+4. **Issue creation** — Each issue uses the standard template: Title, Goal, Changes, Acceptance, Dependencies
+5. **Project linking** — All issues linked to the MediaCleaner Pro Roadmap project with Status: Todo
+6. **Sequential ordering** — Issues are numbered and ordered; each builds on the prior
+7. **Approval** — User reviews the issue breakdown before execution begins
+
+### Execution Flow
 
 Every feature, fix, or refactor follows this exact sequence:
 
-1. **Issue created** — One GitHub issue per unit of work, linked to the roadmap project
+1. **Issue created** — One GitHub issue per unit of work, linked to the roadmap project, Status: Todo
 2. **Branch from main** — `git checkout -b <issue-number>-<short-description>`
 3. **Implement** — Make changes, verify with `cargo check --workspace` and `cargo test --workspace`
 4. **Commit + Push** — Conventional commit message with `Issue: #<number>` footer
