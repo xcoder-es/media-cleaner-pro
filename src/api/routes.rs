@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::{
     api::models::*,
-    state::{machine::StateMachine, AppState, StageInfo, StageStatus, ProcessingStats, LogMessage},
+    state::{machine::StateMachine, AppState, LogMessage, ProcessingStats, StageInfo, StageStatus},
 };
 
 use mc_core::PipelineConfig;
@@ -78,9 +78,7 @@ struct DirEntry {
         (status = 200, description = "Directory listing", body = Vec<DirEntry>),
     )
 )]
-async fn browse_directory(
-    Query(params): Query<HashMap<String, String>>,
-) -> Json<Vec<DirEntry>> {
+async fn browse_directory(Query(params): Query<HashMap<String, String>>) -> Json<Vec<DirEntry>> {
     use std::path::Path;
 
     let current = params.get("path").map(|s| s.as_str()).unwrap_or("/");
@@ -91,7 +89,9 @@ async fn browse_directory(
     }
 
     let mut entries = Vec::new();
-    let image_extensions = ["jpg", "jpeg", "png", "bmp", "webp", "gif", "tiff", "tif", "heic", "heif"];
+    let image_extensions = [
+        "jpg", "jpeg", "png", "bmp", "webp", "gif", "tiff", "tif", "heic", "heif",
+    ];
 
     match std::fs::read_dir(dir) {
         Ok(rd) => {
@@ -106,9 +106,13 @@ async fn browse_directory(
                             rd.flatten()
                                 .filter(|e| {
                                     e.file_type().map(|t| t.is_file()).unwrap_or(false)
-                                        && e.path().extension()
+                                        && e.path()
+                                            .extension()
                                             .and_then(|e| e.to_str())
-                                            .map(|e| image_extensions.contains(&e.to_lowercase().as_str()))
+                                            .map(|e| {
+                                                image_extensions
+                                                    .contains(&e.to_lowercase().as_str())
+                                            })
                                             .unwrap_or(false)
                                 })
                                 .count()
@@ -119,7 +123,12 @@ async fn browse_directory(
                 };
 
                 if is_dir {
-                    entries.push(DirEntry { name, path, is_dir: true, image_count });
+                    entries.push(DirEntry {
+                        name,
+                        path,
+                        is_dir: true,
+                        image_count,
+                    });
                 }
             }
         }
@@ -265,11 +274,12 @@ async fn progress_stream(
         (status = 200, description = "Recent log messages", body = Vec<LogMessage>),
     )
 )]
-async fn get_logs(State(state): State<Arc<RwLock<AppState>>>) -> Json<Vec<crate::state::LogMessage>> {
+async fn get_logs(
+    State(state): State<Arc<RwLock<AppState>>>,
+) -> Json<Vec<crate::state::LogMessage>> {
     let s = state.read().await;
     Json(s.log_messages.clone())
 }
-
 
 #[utoipa::path(
     get,
@@ -289,16 +299,20 @@ async fn health_check() -> Json<serde_json::Value> {
 
 // The actual pipeline runner
 pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
-    use crate::processing::*;
     use crate::processing::duplicate::DuplicateDetector;
     use crate::processing::stages::StageProcessor;
+    use crate::processing::*;
     use std::collections::HashSet;
     use std::time::Instant;
     use walkdir::WalkDir;
 
     let (source_dir, _dest_dir, threshold) = {
         let s = state.read().await;
-        (s.config.source_dir.clone(), s.config.dest_dir.clone(), s.config.hamming_threshold)
+        (
+            s.config.source_dir.clone(),
+            s.config.dest_dir.clone(),
+            s.config.hamming_threshold,
+        )
     };
 
     let (file_system, exact_hasher, image_hasher, image_decoder) = {
@@ -354,7 +368,11 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         }
 
         let path_str = path.to_string_lossy().to_string();
-        let filename = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let filename = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
 
         {
             let mut s = state.write().await;
@@ -388,7 +406,8 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
             }
         };
 
-        let format = path.extension()
+        let format = path
+            .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("unknown")
             .to_string();
@@ -412,7 +431,8 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
     }
 
     // Collect results per image for file routing
-    let mut results_map: std::collections::HashMap<String, Vec<StageResult>> = std::collections::HashMap::new();
+    let mut results_map: std::collections::HashMap<String, Vec<StageResult>> =
+        std::collections::HashMap::new();
 
     // Stage 0: Exact Duplicate Removal
     {
@@ -443,7 +463,10 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         }
 
         let result = StageProcessor::exact_duplicate(meta, &seen_hashes);
-        results_map.entry(meta.path.clone()).or_default().push(result.clone());
+        results_map
+            .entry(meta.path.clone())
+            .or_default()
+            .push(result.clone());
         if result.passed {
             seen_hashes.insert(meta.sha256.clone());
         } else {
@@ -458,7 +481,8 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
             let elapsed = start_time.elapsed().as_secs_f64();
             if elapsed > 0.0 {
                 s.stats.speed = processed as f64 / elapsed;
-                s.stats.eta_seconds = (total.saturating_sub(processed) as f64 / s.stats.speed.max(0.1)) as u64;
+                s.stats.eta_seconds =
+                    (total.saturating_sub(processed) as f64 / s.stats.speed.max(0.1)) as u64;
             }
         }
     }
@@ -494,7 +518,10 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         let duplicates = detector.add(meta.path.clone(), dhash);
 
         let result = StageProcessor::perceptual_duplicate(meta, &duplicates);
-        results_map.entry(meta.path.clone()).or_default().push(result);
+        results_map
+            .entry(meta.path.clone())
+            .or_default()
+            .push(result);
 
         {
             let mut s = state.write().await;
@@ -525,65 +552,113 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
     };
 
     for (path, result) in crate::processing::run_simple_stage(
-        &state, 2, &image_metas, total, &check_control,
+        &state,
+        2,
+        &image_metas,
+        total,
+        &check_control,
         |meta| StageProcessor::tiny_image(meta, min_dims.0, min_dims.1),
-    ).await {
+    )
+    .await
+    {
         results_map.entry(path).or_default().push(result);
     }
 
     // Stage 3: Icon Detection
     for (path, result) in crate::processing::run_simple_stage(
-        &state, 3, &image_metas, total, &check_control,
+        &state,
+        3,
+        &image_metas,
+        total,
+        &check_control,
         |meta| StageProcessor::icon_detection(meta),
-    ).await {
+    )
+    .await
+    {
         results_map.entry(path).or_default().push(result);
     }
 
     // Stage 4: Thumbnail Detection
     for (path, result) in crate::processing::run_simple_stage(
-        &state, 4, &image_metas, total, &check_control,
+        &state,
+        4,
+        &image_metas,
+        total,
+        &check_control,
         |meta| StageProcessor::thumbnail_detection(meta),
-    ).await {
+    )
+    .await
+    {
         results_map.entry(path).or_default().push(result);
     }
 
     // Stage 5: Screenshot Detection
     for (path, result) in crate::processing::run_simple_stage(
-        &state, 5, &image_metas, total, &check_control,
+        &state,
+        5,
+        &image_metas,
+        total,
+        &check_control,
         |meta| StageProcessor::screenshot_detection(meta),
-    ).await {
+    )
+    .await
+    {
         results_map.entry(path).or_default().push(result);
     }
 
     // Stage 6: Wallpaper Detection
     for (path, result) in crate::processing::run_simple_stage(
-        &state, 6, &image_metas, total, &check_control,
+        &state,
+        6,
+        &image_metas,
+        total,
+        &check_control,
         |meta| StageProcessor::wallpaper_detection(meta),
-    ).await {
+    )
+    .await
+    {
         results_map.entry(path).or_default().push(result);
     }
 
     // Stage 7: Document Detection
     for (path, result) in crate::processing::run_simple_stage(
-        &state, 7, &image_metas, total, &check_control,
+        &state,
+        7,
+        &image_metas,
+        total,
+        &check_control,
         |meta| StageProcessor::document_detection(meta),
-    ).await {
+    )
+    .await
+    {
         results_map.entry(path).or_default().push(result);
     }
 
     // Stage 8: AI Classification
     for (path, result) in crate::processing::run_simple_stage(
-        &state, 8, &image_metas, total, &check_control,
+        &state,
+        8,
+        &image_metas,
+        total,
+        &check_control,
         |meta| StageProcessor::ai_classification(meta),
-    ).await {
+    )
+    .await
+    {
         results_map.entry(path).or_default().push(result);
     }
 
     // Stage 9: Quality Ranking
     for (path, result) in crate::processing::run_simple_stage(
-        &state, 9, &image_metas, total, &check_control,
+        &state,
+        9,
+        &image_metas,
+        total,
+        &check_control,
         |meta| StageProcessor::quality_ranking(meta),
-    ).await {
+    )
+    .await
+    {
         results_map.entry(path).or_default().push(result);
     }
 

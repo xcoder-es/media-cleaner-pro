@@ -1,5 +1,5 @@
-use std::path::Path;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageMetadata {
@@ -106,7 +106,10 @@ impl Default for PipelineConfig {
 pub fn is_image_file(path: &Path) -> bool {
     if let Some(ext) = path.extension() {
         let ext = ext.to_string_lossy().to_lowercase();
-        matches!(ext.as_str(), "jpg" | "jpeg" | "png" | "bmp" | "webp" | "gif" | "tiff" | "tif")
+        matches!(
+            ext.as_str(),
+            "jpg" | "jpeg" | "png" | "bmp" | "webp" | "gif" | "tiff" | "tif"
+        )
     } else {
         false
     }

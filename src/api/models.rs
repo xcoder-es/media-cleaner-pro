@@ -1,6 +1,6 @@
+use crate::state::{LogMessage, ProcessingStats, StageInfo};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use crate::state::{StageInfo, ProcessingStats, LogMessage};
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct StartJobRequest {

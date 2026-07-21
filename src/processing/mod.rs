@@ -1,14 +1,14 @@
-pub mod hash;
 pub mod duplicate;
+pub mod hash;
 pub mod stages;
 
-pub use mc_core::{ImageMetadata, StageResult, is_image_file, format_duration};
+pub use mc_core::{format_duration, is_image_file, ImageMetadata, StageResult};
 
+use crate::state::machine::StateMachine;
+use crate::state::AppState;
+use std::future::Future;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use crate::state::AppState;
-use crate::state::machine::StateMachine;
-use std::future::Future;
 
 pub(crate) async fn run_simple_stage<F, Fut>(
     state: &Arc<RwLock<AppState>>,

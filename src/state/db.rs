@@ -51,7 +51,7 @@ impl Database {
             );
             CREATE INDEX IF NOT EXISTS idx_images_job ON images(job_id);
             CREATE INDEX IF NOT EXISTS idx_images_dhash ON images(dhash);
-            CREATE INDEX IF NOT EXISTS idx_images_sha256 ON images(sha256);"
+            CREATE INDEX IF NOT EXISTS idx_images_sha256 ON images(sha256);",
         )?;
         Ok(())
     }

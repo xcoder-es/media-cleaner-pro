@@ -4,16 +4,12 @@ use tokio::sync::RwLock;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use mediacleaner_pro::{
-    api::routes::create_routes,
-    config::Config,
-    state::AppState,
-};
 use mc_infra::fs::NativeFileSystem;
-use mc_infra::hash::{Sha256Hasher, DHashHasher};
+use mc_infra::hash::{DHashHasher, Sha256Hasher};
 use mc_infra::image::ImageRsDecoder;
 use mc_infra::notify::InMemoryNotifier;
 use mc_infra::sqlite::SqliteJobRepo;
+use mediacleaner_pro::{api::routes::create_routes, config::Config, state::AppState};
 
 const DEFAULT_ENV_TEMPLATE: &str = r#"# MediaCleaner Pro Configuration
 RUST_LOG=info
@@ -49,7 +45,9 @@ fn auto_init() {
             let abs = std::fs::canonicalize(dotenv_path)
                 .map(|p| p.to_string_lossy().to_string())
                 .unwrap_or_else(|_| ".env".to_string());
-            println!("First run — created .env at {abs}. Edit it to configure source/dest directories.");
+            println!(
+                "First run — created .env at {abs}. Edit it to configure source/dest directories."
+            );
         }
     }
 
@@ -82,9 +80,9 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Author: Carlos Pinto <capintobe@gmail.com>");
     tracing::info!("Server: {}:{}", config.server_host, config.server_port);
 
-    let file_system = Arc::new(NativeFileSystem::new(
-        std::path::PathBuf::from(&config.source_dir),
-    ));
+    let file_system = Arc::new(NativeFileSystem::new(std::path::PathBuf::from(
+        &config.source_dir,
+    )));
     let exact_hasher = Arc::new(Sha256Hasher::new());
     let image_hasher = Arc::new(DHashHasher::new());
     let image_decoder = Arc::new(ImageRsDecoder::new());
@@ -118,11 +116,16 @@ async fn main() -> anyhow::Result<()> {
         .layer(cors)
         .layer(tower_http::trace::TraceLayer::new_for_http());
 
-    let addr: SocketAddr = format!("{}:{}", config.server_host, config.server_port)
-        .parse()?;
+    let addr: SocketAddr = format!("{}:{}", config.server_host, config.server_port).parse()?;
 
-    tracing::info!("MediaCleaner Pro ready at http://localhost:{}", config.server_port);
-    tracing::info!("Open http://localhost:{}/ in your browser to start processing", config.server_port);
+    tracing::info!(
+        "MediaCleaner Pro ready at http://localhost:{}",
+        config.server_port
+    );
+    tracing::info!(
+        "Open http://localhost:{}/ in your browser to start processing",
+        config.server_port
+    );
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;

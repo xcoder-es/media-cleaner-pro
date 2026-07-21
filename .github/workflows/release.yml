@@ -4,6 +4,10 @@ on:
   push:
     tags: ["v*"]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -51,23 +55,31 @@ jobs:
           cp "target/${{ matrix.target }}/release/mediacleaner-pro${{ matrix.ext }}" \
              "${{ matrix.asset_name }}${{ matrix.ext }}"
 
-      - name: Submit to SignPath.io (Windows only)
+      - name: Upload unsigned artifact (Windows only)
         if: matrix.os == 'windows-2022'
-        uses: signpath/github-sign-action@v1
+        id: upload-unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}-unsigned
+          path: ${{ matrix.asset_name }}${{ matrix.ext }}
+
+      - name: Sign with SignPath (Windows only)
+        if: matrix.os == 'windows-2022'
+        uses: signpath/github-action-submit-signing-request@v2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ secrets.SIGNPATH_ORG_ID }}
           project-slug: media-cleaner-pro
           signing-policy-slug: release-signing
-          input-artifact: ${{ matrix.asset_name }}${{ matrix.ext }}
-          output-artifact: ${{ matrix.asset_name }}-signed${{ matrix.ext }}
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed-output
 
-      - name: Rename signed artifact (Windows only)
+      - name: Copy signed artifact to expected path (Windows only)
         if: matrix.os == 'windows-2022'
         shell: bash
         run: |
-          mv "${{ matrix.asset_name }}-signed${{ matrix.ext }}" \
-             "${{ matrix.asset_name }}${{ matrix.ext }}"
+          cp signed-output/* "${{ matrix.asset_name }}${{ matrix.ext }}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

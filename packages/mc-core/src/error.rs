@@ -21,10 +21,7 @@ pub enum DomainError {
     SyncConflict(String),
 
     #[error("Pipeline error in stage {stage}: {message}")]
-    PipelineError {
-        stage: usize,
-        message: String,
-    },
+    PipelineError { stage: usize, message: String },
 }
 
 impl From<DomainError> for String {

@@ -10,11 +10,7 @@ use rust_embed::RustEmbed;
 struct Assets;
 
 pub async fn serve_assets(request: Request) -> Response {
-    let path = request
-        .uri()
-        .path()
-        .trim_start_matches('/')
-        .to_string();
+    let path = request.uri().path().trim_start_matches('/').to_string();
 
     let path = if path.is_empty() { "index.html" } else { &path };
 
@@ -31,8 +27,11 @@ pub async fn serve_assets(request: Request) -> Response {
                 }
                 None => (
                     [(header::CONTENT_TYPE, "text/plain")],
-                    "Frontend not found. Build with: cd frontend && npm install && npm run build".as_bytes().to_vec(),
-                ).into_response(),
+                    "Frontend not found. Build with: cd frontend && npm install && npm run build"
+                        .as_bytes()
+                        .to_vec(),
+                )
+                    .into_response(),
             }
         }
     }

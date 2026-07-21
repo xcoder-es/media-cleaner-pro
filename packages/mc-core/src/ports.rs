@@ -1,6 +1,6 @@
-use std::path::Path;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 use crate::domain::*;
 use crate::error::DomainError;
@@ -50,7 +50,11 @@ pub trait ImageDecoder: Send + Sync {
 pub trait PipelineStage: Send + Sync {
     fn name(&self) -> &str;
     fn description(&self) -> &str;
-    fn process(&self, meta: &ImageMetadata, context: &StageContext) -> Result<StageResult, DomainError>;
+    fn process(
+        &self,
+        meta: &ImageMetadata,
+        context: &StageContext,
+    ) -> Result<StageResult, DomainError>;
 }
 
 pub struct StageContext {
@@ -65,15 +69,35 @@ pub trait NotificationBus: Send + Sync {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PipelineEvent {
-    StageStarted { stage: usize, name: String },
-    StageProgress { stage: usize, processed: usize, total: usize },
-    StageCompleted { stage: usize, results: StageResult },
-    JobCompleted { job_id: String },
+    StageStarted {
+        stage: usize,
+        name: String,
+    },
+    StageProgress {
+        stage: usize,
+        processed: usize,
+        total: usize,
+    },
+    StageCompleted {
+        stage: usize,
+        results: StageResult,
+    },
+    JobCompleted {
+        job_id: String,
+    },
     JobPaused,
     JobResumed,
     JobCancelled,
-    Error { stage: usize, message: String, path: Option<String> },
-    Log { stage: String, level: String, message: String },
+    Error {
+        stage: usize,
+        message: String,
+        path: Option<String>,
+    },
+    Log {
+        stage: String,
+        level: String,
+        message: String,
+    },
 }
 
 impl std::fmt::Display for PipelineEvent {
@@ -85,5 +109,3 @@ impl std::fmt::Display for PipelineEvent {
         }
     }
 }
-
-
