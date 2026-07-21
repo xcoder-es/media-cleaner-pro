@@ -19,12 +19,12 @@ Advanced perceptual duplicate image removal with a 10-stage pipeline. Processes 
 
 Get the latest binary from the [Releases](https://github.com/xcoder-es/media-cleaner-pro/releases) page.
 
-| Platform | File | Signed |
-|----------|------|--------|
-| Windows x86_64 | `mediacleaner-pro-windows-x86_64.exe` | ✅ Signed via SignPath |
-| macOS Apple Silicon | `mediacleaner-pro-macos-aarch64` | Notarization pending |
-| macOS Intel | `mediacleaner-pro-macos-x86_64` | Notarization pending |
-| Linux x86_64 | `mediacleaner-pro-linux-x86_64` | GPG signing pending |
+| Platform | File |
+|----------|------|
+| Windows x86_64 | `mediacleaner-pro-windows-x86_64.exe` |
+| macOS Apple Silicon | `mediacleaner-pro-macos-aarch64` |
+| macOS Intel | `mediacleaner-pro-macos-x86_64` |
+| Linux x86_64 | `mediacleaner-pro-linux-x86_64` |
 
 ## Quick Start
 
