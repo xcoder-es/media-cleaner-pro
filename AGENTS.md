@@ -215,9 +215,15 @@ cargo build --release
 # Test
 cargo test --workspace
 
-# CI: GitHub Actions release.yml
-# - targets: windows-2022, macos-14 (ARM+Intel), ubuntu-22.04
-# - Creates GitHub Release with compressed binaries
+# CI: GitHub Actions
+# - ci.yml:          cargo fmt/clippy/test on push/PR (windows/macos/ubuntu)
+# - opencode-review.yml: auto-review every PR using opencode GitHub Action
+# - release.yml:     targets windows-2022, macos-14 (ARM+Intel), ubuntu-22.04
+#                    Creates GitHub Release with compressed binaries
+
+# PRs are automatically reviewed by opencode (opencode/deepseek-v4-flash-free)
+# via .github/workflows/opencode-review.yml
+# Requires repo secret: OPENCODE_API_KEY (from opencode.ai/auth)
 ```
 
 ## Conventions

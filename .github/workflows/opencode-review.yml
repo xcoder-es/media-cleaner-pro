@@ -1,0 +1,43 @@
+name: opencode-review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+      issues: read
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Run OpenCode Review
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          model: opencode/deepseek-v4-flash-free
+          agent: build
+          use_github_token: true
+          prompt: |
+            Review this pull request based on the project's conventions in AGENTS.md:
+            - Check for code quality issues, bugs, and security concerns
+            - Verify the code follows the hexagonal architecture patterns
+            - Ensure new types and traits follow Single Responsibility principle
+            - Check that error handling returns DomainError, not anyhow
+            - Verify tests are included for new functionality
+            - Suggest specific improvements with file paths and line numbers
+            Be constructive and concise. Focus on the most impactful issues.
