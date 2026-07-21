@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 macro_rules! newtype_id {
     ($name:ident) => {
@@ -92,7 +92,7 @@ pub enum StageStatus {
     Skipped,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(utoipa::ToSchema))]
 pub struct ProcessingStats {
     pub current_file: Option<String>,
@@ -195,8 +195,6 @@ pub struct ImageInfo {
     pub height: u32,
     pub format: String,
 }
-
-use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Job {

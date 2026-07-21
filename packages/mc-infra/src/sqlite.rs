@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use mc_core::{DomainError, Job, JobId, JobRepository, JobStatus, SyncStatus, TeamId, UserId};
+use mc_core::{DomainError, Job, JobId, JobRepository, TeamId, UserId};
 use rusqlite::Connection;
 
 pub struct SqliteJobRepo {
@@ -25,6 +25,9 @@ impl SqliteJobRepo {
     }
 
     fn map_job_row(row: &rusqlite::Row) -> rusqlite::Result<Job> {
+        // Returns rusqlite::Result because stmt.query_map requires it.
+        // Non-rusqlite errors (serde, chrono) are converted via
+        // ToSqlConversionFailure, then unwrapped to DomainError by callers.
         let id_str: String = row.get(0)?;
         let config_str: String = row.get(5)?;
         let stages_str: String = row.get(6)?;
@@ -45,7 +48,8 @@ impl SqliteJobRepo {
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
             stats: serde_json::from_str(&stats_str)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-            status: serde_json::from_str(&status_str).unwrap_or(JobStatus::Pending),
+            status: serde_json::from_str(&status_str)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
             created_at: chrono::DateTime::parse_from_rfc3339(&created_at_str)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?
                 .with_timezone(&chrono::Utc),
@@ -57,7 +61,8 @@ impl SqliteJobRepo {
                 })
                 .transpose()
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-            sync_status: serde_json::from_str(&sync_status_str).unwrap_or(SyncStatus::NotSynced),
+            sync_status: serde_json::from_str(&sync_status_str)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
         })
     }
 
@@ -146,10 +151,12 @@ impl JobRepository for SqliteJobRepo {
                 config,
                 stages,
                 stats,
-                serde_json::to_string(&job.status).unwrap_or_default(),
+                serde_json::to_string(&job.status)
+                    .map_err(|e| DomainError::StorageError(format!("serialize status: {}", e)))?,
                 job.created_at.to_rfc3339(),
                 job.completed_at.map(|dt| dt.to_rfc3339()),
-                serde_json::to_string(&job.sync_status).unwrap_or_default(),
+                serde_json::to_string(&job.sync_status)
+                    .map_err(|e| DomainError::StorageError(format!("serialize sync_status: {}", e)))?,
             ],
         )
         .map_err(|e| DomainError::StorageError(format!("insert job: {}", e)))?;
@@ -206,10 +213,13 @@ impl JobRepository for SqliteJobRepo {
                 config,
                 stages,
                 stats,
-                serde_json::to_string(&job.status).unwrap_or_default(),
+                serde_json::to_string(&job.status)
+                    .map_err(|e| DomainError::StorageError(format!("serialize status: {}", e)))?,
                 job.created_at.to_rfc3339(),
                 job.completed_at.map(|dt| dt.to_rfc3339()),
-                serde_json::to_string(&job.sync_status).unwrap_or_default(),
+                serde_json::to_string(&job.sync_status).map_err(|e| DomainError::StorageError(
+                    format!("serialize sync_status: {}", e)
+                ))?,
                 job.id.as_ref(),
             ],
         )
@@ -218,14 +228,17 @@ impl JobRepository for SqliteJobRepo {
         Ok(())
     }
 
-    async fn list_jobs(&self, user_id: &UserId, limit: usize) -> Result<Vec<Job>, DomainError> {
+    async fn list_jobs(
+        &self,
+        user_id: Option<&UserId>,
+        limit: usize,
+    ) -> Result<Vec<Job>, DomainError> {
         let conn = self
             .conn
             .lock()
             .map_err(|e| DomainError::StorageError(format!("lock error: {}", e)))?;
 
         let limit = limit as i64;
-        let user_id_str = user_id.to_string();
 
         let collect_jobs =
             |rows: Vec<Result<Job, rusqlite::Error>>| -> Result<Vec<Job>, DomainError> {
@@ -234,54 +247,65 @@ impl JobRepository for SqliteJobRepo {
                     .map_err(|e| DomainError::StorageError(format!("read job row: {}", e)))
             };
 
-        if user_id_str.is_empty() {
-            let mut stmt = conn
-                .prepare(
-                    "SELECT id, user_id, team_id, source_dir, dest_dir, config, stages, stats, status, created_at, completed_at, sync_status
-                     FROM jobs ORDER BY created_at DESC LIMIT ?1",
-                )
-                .map_err(|e| DomainError::StorageError(format!("prepare list_jobs: {}", e)))?;
-            let rows: Vec<Result<Job, _>> = stmt
-                .query_map(rusqlite::params![limit], Self::map_job_row)
-                .map_err(|e| DomainError::StorageError(format!("query list_jobs: {}", e)))?
-                .collect();
-            collect_jobs(rows)
-        } else {
-            let mut stmt = conn
-                .prepare(
-                    "SELECT id, user_id, team_id, source_dir, dest_dir, config, stages, stats, status, created_at, completed_at, sync_status
-                     FROM jobs WHERE user_id = ?1 ORDER BY created_at DESC LIMIT ?2",
-                )
-                .map_err(|e| DomainError::StorageError(format!("prepare list_jobs: {}", e)))?;
-            let rows: Vec<Result<Job, _>> = stmt
-                .query_map(rusqlite::params![user_id_str, limit], Self::map_job_row)
-                .map_err(|e| DomainError::StorageError(format!("query list_jobs: {}", e)))?
-                .collect();
-            collect_jobs(rows)
+        match user_id {
+            None => {
+                let mut stmt = conn
+                    .prepare(
+                        "SELECT id, user_id, team_id, source_dir, dest_dir, config, stages, stats, status, created_at, completed_at, sync_status
+                         FROM jobs ORDER BY created_at DESC LIMIT ?1",
+                    )
+                    .map_err(|e| DomainError::StorageError(format!("prepare list_jobs: {}", e)))?;
+                let rows: Vec<Result<Job, _>> = stmt
+                    .query_map(rusqlite::params![limit], Self::map_job_row)
+                    .map_err(|e| DomainError::StorageError(format!("query list_jobs: {}", e)))?
+                    .collect();
+                collect_jobs(rows)
+            }
+            Some(uid) => {
+                let uid_str = uid.as_ref();
+                let mut stmt = conn
+                    .prepare(
+                        "SELECT id, user_id, team_id, source_dir, dest_dir, config, stages, stats, status, created_at, completed_at, sync_status
+                         FROM jobs WHERE user_id = ?1 ORDER BY created_at DESC LIMIT ?2",
+                    )
+                    .map_err(|e| DomainError::StorageError(format!("prepare list_jobs: {}", e)))?;
+                let rows: Vec<Result<Job, _>> = stmt
+                    .query_map(rusqlite::params![uid_str, limit], Self::map_job_row)
+                    .map_err(|e| DomainError::StorageError(format!("query list_jobs: {}", e)))?
+                    .collect();
+                collect_jobs(rows)
+            }
         }
     }
 
     async fn delete_job(&self, id: &JobId) -> Result<(), DomainError> {
-        let conn = self
+        let mut conn = self
             .conn
             .lock()
             .map_err(|e| DomainError::StorageError(format!("lock error: {}", e)))?;
 
+        let tx = conn
+            .transaction()
+            .map_err(|e| DomainError::StorageError(format!("begin tx: {}", e)))?;
+
         let id_str = id.as_ref();
-        conn.execute(
+        tx.execute(
             "DELETE FROM duplicates WHERE job_id = ?1",
             rusqlite::params![id_str],
         )
         .map_err(|e| DomainError::StorageError(format!("delete duplicates: {}", e)))?;
 
-        conn.execute(
+        tx.execute(
             "DELETE FROM images WHERE job_id = ?1",
             rusqlite::params![id_str],
         )
         .map_err(|e| DomainError::StorageError(format!("delete images: {}", e)))?;
 
-        conn.execute("DELETE FROM jobs WHERE id = ?1", rusqlite::params![id_str])
+        tx.execute("DELETE FROM jobs WHERE id = ?1", rusqlite::params![id_str])
             .map_err(|e| DomainError::StorageError(format!("delete job: {}", e)))?;
+
+        tx.commit()
+            .map_err(|e| DomainError::StorageError(format!("commit tx: {}", e)))?;
 
         Ok(())
     }

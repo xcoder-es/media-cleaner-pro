@@ -1,8 +1,11 @@
+use chrono::Utc;
 use mc_core::*;
 use mc_infra::fs::NativeFileSystem;
 use mc_infra::hash::{DHashHasher, Sha256Hasher};
 use mc_infra::image::ImageRsDecoder;
+use mc_infra::sqlite::SqliteJobRepo;
 use std::path::Path;
+use std::path::PathBuf;
 
 fn rt() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_current_thread()
@@ -203,4 +206,84 @@ fn test_hamming_distance_trait() {
     let hasher = DHashHasher::new();
     let d = hasher.hamming_distance(0xFF00, 0x00FF);
     assert_eq!(d, 16);
+}
+
+fn create_test_job(id: &str, user_id: Option<&str>, team_id: Option<&str>) -> Job {
+    Job {
+        id: JobId::from(id.to_string()),
+        user_id: user_id.map(|u| UserId::from(u.to_string())),
+        team_id: team_id.map(|t| TeamId::from(t.to_string())),
+        source_dir: PathBuf::from("/tmp/src"),
+        dest_dir: PathBuf::from("/tmp/dst"),
+        config: PipelineConfig::default(),
+        stages: Vec::new(),
+        stats: ProcessingStats::default(),
+        status: JobStatus::Pending,
+        created_at: Utc::now(),
+        completed_at: None,
+        sync_status: SyncStatus::NotSynced,
+    }
+}
+
+#[test]
+fn test_sqlite_query_by_team_returns_correct_jobs() {
+    let tmp = std::env::temp_dir().join("mc_infra_test_query_team.db");
+    let _ = std::fs::remove_file(&tmp);
+
+    let repo = SqliteJobRepo::new(&tmp).unwrap();
+    let rt = rt();
+
+    let team_a = TeamId::from("team-alpha".to_string());
+    let team_b = TeamId::from("team-beta".to_string());
+
+    let job1 = create_test_job("job1", Some("user1"), Some("team-alpha"));
+    let job2 = create_test_job("job2", Some("user2"), Some("team-alpha"));
+    let job3 = create_test_job("job3", Some("user1"), Some("team-beta"));
+
+    rt.block_on(repo.create_job(&job1)).unwrap();
+    rt.block_on(repo.create_job(&job2)).unwrap();
+    rt.block_on(repo.create_job(&job3)).unwrap();
+
+    let alpha_jobs = rt.block_on(repo.query_by_team(&team_a)).unwrap();
+    assert_eq!(alpha_jobs.len(), 2, "team-alpha should have 2 jobs");
+    assert!(alpha_jobs
+        .iter()
+        .any(|j| j.id == JobId::from("job1".to_string())));
+    assert!(alpha_jobs
+        .iter()
+        .any(|j| j.id == JobId::from("job2".to_string())));
+
+    let beta_jobs = rt.block_on(repo.query_by_team(&team_b)).unwrap();
+    assert_eq!(beta_jobs.len(), 1, "team-beta should have 1 job");
+    assert_eq!(beta_jobs[0].id, JobId::from("job3".to_string()));
+
+    let _ = std::fs::remove_file(&tmp);
+}
+
+#[test]
+fn test_sqlite_list_jobs_all_vs_by_user() {
+    let tmp = std::env::temp_dir().join("mc_infra_test_list_jobs.db");
+    let _ = std::fs::remove_file(&tmp);
+
+    let repo = SqliteJobRepo::new(&tmp).unwrap();
+    let rt = rt();
+
+    let uid = UserId::from("user-42".to_string());
+
+    let job1 = create_test_job("a", Some("user-42"), None);
+    let job2 = create_test_job("b", Some("user-42"), None);
+    let job3 = create_test_job("c", Some("other"), None);
+
+    rt.block_on(repo.create_job(&job1)).unwrap();
+    rt.block_on(repo.create_job(&job2)).unwrap();
+    rt.block_on(repo.create_job(&job3)).unwrap();
+
+    let all = rt.block_on(repo.list_jobs(None, 100)).unwrap();
+    assert_eq!(all.len(), 3, "list_jobs(None) should return all jobs");
+
+    let user_jobs = rt.block_on(repo.list_jobs(Some(&uid), 100)).unwrap();
+    assert_eq!(user_jobs.len(), 2, "user-42 should have 2 jobs");
+    assert!(user_jobs.iter().all(|j| j.user_id == Some(uid.clone())));
+
+    let _ = std::fs::remove_file(&tmp);
 }
