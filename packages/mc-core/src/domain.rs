@@ -189,7 +189,7 @@ pub enum SyncStatus {
     Conflict,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DirEntry {
     pub name: String,
     pub path: PathBuf,
