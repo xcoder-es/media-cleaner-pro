@@ -1,13 +1,10 @@
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use mediacleaner_pro::{
-    api::routes::create_routes,
-    state::AppState,
-};
 use mc_infra::fs::NativeFileSystem;
-use mc_infra::hash::{Sha256Hasher, DHashHasher};
+use mc_infra::hash::{DHashHasher, Sha256Hasher};
 use mc_infra::image::ImageRsDecoder;
 use mc_infra::notify::InMemoryNotifier;
+use mediacleaner_pro::{api::routes::create_routes, state::AppState};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 fn setup(tmp: &std::path::Path) -> Arc<RwLock<AppState>> {
     let config = mediacleaner_pro::config::Config {

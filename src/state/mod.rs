@@ -1,9 +1,9 @@
-pub mod machine;
 pub mod db;
+pub mod machine;
 
+use mc_core::{ExactHasher, FileSystem, ImageDecoder, ImageHasher, NotificationBus};
+pub use mc_core::{LogMessage, ProcessingStats, StageInfo, StageStatus};
 use std::sync::Arc;
-use mc_core::{FileSystem, ExactHasher, ImageHasher, ImageDecoder, NotificationBus};
-pub use mc_core::{StageInfo, StageStatus, ProcessingStats, LogMessage};
 
 pub struct AppContext {
     pub file_system: Arc<dyn FileSystem>,
@@ -59,7 +59,8 @@ impl AppState {
             },
             StageInfo {
                 name: "Tiny Image Detection".to_string(),
-                description: "Detect and flag images below configurable resolution threshold".to_string(),
+                description: "Detect and flag images below configurable resolution threshold"
+                    .to_string(),
                 status: StageStatus::Pending,
                 progress: 0.0,
                 processed: 0,
@@ -70,7 +71,8 @@ impl AppState {
             },
             StageInfo {
                 name: "Icon Detection".to_string(),
-                description: "Multi-factor scoring for application icons and UI elements".to_string(),
+                description: "Multi-factor scoring for application icons and UI elements"
+                    .to_string(),
                 status: StageStatus::Pending,
                 progress: 0.0,
                 processed: 0,

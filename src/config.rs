@@ -1,6 +1,6 @@
-use std::env;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::env;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -29,10 +29,8 @@ impl Config {
             server_port: env::var("SERVER_PORT")
                 .unwrap_or_else(|_| "8080".to_string())
                 .parse()?,
-            source_dir: env::var("SOURCE_DIR")
-                .unwrap_or_else(|_| "./data/source".to_string()),
-            dest_dir: env::var("DEST_DIR")
-                .unwrap_or_else(|_| "./data/output".to_string()),
+            source_dir: env::var("SOURCE_DIR").unwrap_or_else(|_| "./data/source".to_string()),
+            dest_dir: env::var("DEST_DIR").unwrap_or_else(|_| "./data/output".to_string()),
             hamming_threshold: env::var("HAMMING_THRESHOLD")
                 .unwrap_or_else(|_| "4".to_string())
                 .parse()?,
@@ -45,8 +43,7 @@ impl Config {
             worker_threads: env::var("WORKER_THREADS")
                 .unwrap_or_else(|_| "0".to_string())
                 .parse()?,
-            db_path: env::var("DB_PATH")
-                .unwrap_or_else(|_| "./mediacleaner.db".to_string()),
+            db_path: env::var("DB_PATH").unwrap_or_else(|_| "./mediacleaner.db".to_string()),
             temporal_host: env::var("TEMPORAL_HOST").ok(),
             temporal_namespace: env::var("TEMPORAL_NAMESPACE")
                 .unwrap_or_else(|_| "default".to_string()),

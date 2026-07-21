@@ -10,6 +10,12 @@ impl ImageRsDecoder {
     }
 }
 
+impl Default for ImageRsDecoder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ImageDecoder for ImageRsDecoder {
     fn decode(&self, data: &[u8]) -> Result<ImageInfo, DomainError> {
         let reader = image::load_from_memory(data)

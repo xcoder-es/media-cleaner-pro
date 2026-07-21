@@ -1,6 +1,6 @@
+use mc_core::*;
 use std::collections::HashSet;
 use std::path::Path;
-use mc_core::*;
 
 fn make_meta(
     filename: &str,
@@ -25,7 +25,11 @@ fn make_meta(
 #[test]
 fn test_is_image_file_valid_extensions() {
     for ext in &["jpg", "jpeg", "png", "bmp", "webp", "gif", "tiff", "tif"] {
-        assert!(is_image_file(Path::new(&format!("photo.{}", ext))), "failed for .{}", ext);
+        assert!(
+            is_image_file(Path::new(&format!("photo.{}", ext))),
+            "failed for .{}",
+            ext
+        );
     }
 }
 
@@ -101,7 +105,10 @@ fn test_perceptual_duplicate_detected() {
     let dupes = vec!["/test/b.jpg".to_string()];
     let result = StageProcessor::perceptual_duplicate(&meta, &dupes);
     assert!(!result.passed);
-    assert_eq!(result.destination, Some("duplicates/perceptual".to_string()));
+    assert_eq!(
+        result.destination,
+        Some("duplicates/perceptual".to_string())
+    );
 }
 
 #[test]
@@ -151,7 +158,10 @@ fn test_thumbnail_detection_by_name() {
     let meta = make_meta("thumb_001.jpg", 640, 480, 10000, "x", None);
     let result = StageProcessor::thumbnail_detection(&meta);
     assert!(!result.passed);
-    assert_eq!(result.destination, Some("categories/thumbnails".to_string()));
+    assert_eq!(
+        result.destination,
+        Some("categories/thumbnails".to_string())
+    );
 }
 
 #[test]
@@ -173,7 +183,10 @@ fn test_screenshot_detection_common_resolution() {
     let meta = make_meta("shot.png", 1920, 1080, 100000, "x", None);
     let result = StageProcessor::screenshot_detection(&meta);
     assert!(!result.passed);
-    assert_eq!(result.destination, Some("categories/screenshots".to_string()));
+    assert_eq!(
+        result.destination,
+        Some("categories/screenshots".to_string())
+    );
 }
 
 #[test]
@@ -195,7 +208,10 @@ fn test_wallpaper_detection_ultrawide() {
     let meta = make_meta("wide.jpg", 3440, 1440, 300000, "x", None);
     let result = StageProcessor::wallpaper_detection(&meta);
     assert!(!result.passed);
-    assert_eq!(result.destination, Some("categories/wallpapers".to_string()));
+    assert_eq!(
+        result.destination,
+        Some("categories/wallpapers".to_string())
+    );
 }
 
 #[test]
@@ -326,5 +342,8 @@ fn test_duplicate_detector_threshold_boundary() {
     let mut detector = DuplicateDetector::new(0);
     detector.add("/a.jpg".to_string(), 0xFFFF);
     let r = detector.add("/b.jpg".to_string(), 0xFFFE);
-    assert!(r.is_empty(), "should not match when threshold=0 but bits differ");
+    assert!(
+        r.is_empty(),
+        "should not match when threshold=0 but bits differ"
+    );
 }

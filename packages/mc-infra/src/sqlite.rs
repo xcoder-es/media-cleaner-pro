@@ -19,7 +19,9 @@ impl SqliteJobRepo {
 
         Self::init_tables(&conn)?;
 
-        Ok(SqliteJobRepo { conn: Mutex::new(conn) })
+        Ok(SqliteJobRepo {
+            conn: Mutex::new(conn),
+        })
     }
 
     fn map_job_row(row: &rusqlite::Row) -> rusqlite::Result<Job> {
@@ -98,7 +100,7 @@ impl SqliteJobRepo {
             CREATE INDEX IF NOT EXISTS idx_images_job_id ON images(job_id);
             CREATE INDEX IF NOT EXISTS idx_images_dhash ON images(dhash);
             CREATE INDEX IF NOT EXISTS idx_images_sha256 ON images(sha256);
-            CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);"
+            CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);",
         )
         .map_err(|e| DomainError::StorageError(format!("init tables: {}", e)))?;
 
@@ -109,9 +111,10 @@ impl SqliteJobRepo {
 #[async_trait]
 impl JobRepository for SqliteJobRepo {
     async fn create_job(&self, job: &Job) -> Result<(), DomainError> {
-        let conn = self.conn.lock().map_err(|e| {
-            DomainError::StorageError(format!("lock error: {}", e))
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| DomainError::StorageError(format!("lock error: {}", e)))?;
 
         let config = serde_json::to_string(&job.config)
             .map_err(|e| DomainError::StorageError(format!("serialize config: {}", e)))?;
@@ -144,9 +147,10 @@ impl JobRepository for SqliteJobRepo {
     }
 
     async fn get_job(&self, id: &str) -> Result<Option<Job>, DomainError> {
-        let conn = self.conn.lock().map_err(|e| {
-            DomainError::StorageError(format!("lock error: {}", e))
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| DomainError::StorageError(format!("lock error: {}", e)))?;
 
         let mut stmt = conn
             .prepare(
@@ -165,9 +169,10 @@ impl JobRepository for SqliteJobRepo {
     }
 
     async fn update_job(&self, job: &Job) -> Result<(), DomainError> {
-        let conn = self.conn.lock().map_err(|e| {
-            DomainError::StorageError(format!("lock error: {}", e))
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| DomainError::StorageError(format!("lock error: {}", e)))?;
 
         let config = serde_json::to_string(&job.config)
             .map_err(|e| DomainError::StorageError(format!("serialize config: {}", e)))?;
@@ -203,17 +208,19 @@ impl JobRepository for SqliteJobRepo {
     }
 
     async fn list_jobs(&self, user_id: &str, limit: usize) -> Result<Vec<Job>, DomainError> {
-        let conn = self.conn.lock().map_err(|e| {
-            DomainError::StorageError(format!("lock error: {}", e))
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| DomainError::StorageError(format!("lock error: {}", e)))?;
 
         let limit = limit as i64;
 
-        let collect_jobs = |rows: Vec<Result<Job, rusqlite::Error>>| -> Result<Vec<Job>, DomainError> {
-            rows.into_iter()
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| DomainError::StorageError(format!("read job row: {}", e)))
-        };
+        let collect_jobs =
+            |rows: Vec<Result<Job, rusqlite::Error>>| -> Result<Vec<Job>, DomainError> {
+                rows.into_iter()
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|e| DomainError::StorageError(format!("read job row: {}", e)))
+            };
 
         if user_id.is_empty() {
             let mut stmt = conn
@@ -243,15 +250,22 @@ impl JobRepository for SqliteJobRepo {
     }
 
     async fn delete_job(&self, id: &str) -> Result<(), DomainError> {
-        let conn = self.conn.lock().map_err(|e| {
-            DomainError::StorageError(format!("lock error: {}", e))
-        })?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| DomainError::StorageError(format!("lock error: {}", e)))?;
 
-        conn.execute("DELETE FROM duplicates WHERE job_id = ?1", rusqlite::params![id])
-            .map_err(|e| DomainError::StorageError(format!("delete duplicates: {}", e)))?;
+        conn.execute(
+            "DELETE FROM duplicates WHERE job_id = ?1",
+            rusqlite::params![id],
+        )
+        .map_err(|e| DomainError::StorageError(format!("delete duplicates: {}", e)))?;
 
-        conn.execute("DELETE FROM images WHERE job_id = ?1", rusqlite::params![id])
-            .map_err(|e| DomainError::StorageError(format!("delete images: {}", e)))?;
+        conn.execute(
+            "DELETE FROM images WHERE job_id = ?1",
+            rusqlite::params![id],
+        )
+        .map_err(|e| DomainError::StorageError(format!("delete images: {}", e)))?;
 
         conn.execute("DELETE FROM jobs WHERE id = ?1", rusqlite::params![id])
             .map_err(|e| DomainError::StorageError(format!("delete job: {}", e)))?;

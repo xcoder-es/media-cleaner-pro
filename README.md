@@ -1,6 +1,8 @@
 # MediaCleaner Pro
 
 [![CI](https://github.com/xcoder-es/media-cleaner-pro/actions/workflows/ci.yml/badge.svg)](https://github.com/xcoder-es/media-cleaner-pro/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/xcoder-es/media-cleaner-pro)](https://github.com/xcoder-es/media-cleaner-pro/releases/latest)
+[![License](https://img.shields.io/github/license/xcoder-es/media-cleaner-pro)](LICENSE)
 
 Advanced perceptual duplicate image removal with a 10-stage pipeline. Processes hundreds of thousands of local images without uploading to any server. Single native binary — no Docker or cloud dependencies.
 
@@ -17,12 +19,12 @@ Advanced perceptual duplicate image removal with a 10-stage pipeline. Processes 
 
 Get the latest binary from the [Releases](https://github.com/xcoder-es/media-cleaner-pro/releases) page.
 
-| Platform | File |
-|----------|------|
-| Windows x86_64 | `mediacleaner-pro-windows-x86_64.exe` |
-| macOS Apple Silicon | `mediacleaner-pro-macos-aarch64` |
-| macOS Intel | `mediacleaner-pro-macos-x86_64` |
-| Linux x86_64 | `mediacleaner-pro-linux-x86_64` |
+| Platform | File | Signed |
+|----------|------|--------|
+| Windows x86_64 | `mediacleaner-pro-windows-x86_64.exe` | ✅ Signed via SignPath |
+| macOS Apple Silicon | `mediacleaner-pro-macos-aarch64` | Notarization pending |
+| macOS Intel | `mediacleaner-pro-macos-x86_64` | Notarization pending |
+| Linux x86_64 | `mediacleaner-pro-linux-x86_64` | GPG signing pending |
 
 ## Quick Start
 
@@ -44,7 +46,7 @@ Edit `.env` in the same directory as the binary:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SERVER_HOST` | `0.0.0.0` | Bind address |
+| `SERVER_HOST` | `127.0.0.1` | Bind address |
 | `SERVER_PORT` | `8080` | HTTP port |
 | `SOURCE_DIR` | `./data/source` | Input image directory |
 | `DEST_DIR` | `./data/output` | Output organized files |

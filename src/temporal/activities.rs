@@ -5,3 +5,9 @@ impl ActivityRunner {
         ActivityRunner
     }
 }
+
+impl Default for ActivityRunner {
+    fn default() -> Self {
+        Self::new()
+    }
+}

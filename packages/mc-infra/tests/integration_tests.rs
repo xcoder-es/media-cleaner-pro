@@ -1,22 +1,20 @@
-use std::path::Path;
 use mc_core::*;
 use mc_infra::fs::NativeFileSystem;
-use mc_infra::hash::{Sha256Hasher, DHashHasher};
+use mc_infra::hash::{DHashHasher, Sha256Hasher};
 use mc_infra::image::ImageRsDecoder;
+use std::path::Path;
 
 fn rt() -> tokio::runtime::Runtime {
-    tokio::runtime::Builder::new_current_thread().build().unwrap()
+    tokio::runtime::Builder::new_current_thread()
+        .build()
+        .unwrap()
 }
 
 fn create_test_png(path: &Path, width: u32, height: u32) {
     let mut buf = image::RgbImage::new(width, height);
     for x in 0..width {
         for y in 0..height {
-            let pixel = image::Rgb([
-                (x * 255 / width) as u8,
-                (y * 255 / height) as u8,
-                128,
-            ]);
+            let pixel = image::Rgb([(x * 255 / width) as u8, (y * 255 / height) as u8, 128]);
             buf.put_pixel(x, y, pixel);
         }
     }
@@ -44,7 +42,8 @@ fn test_native_fs_write_file() {
     let fs = NativeFileSystem::new(&tmp);
     let file_path = tmp.join("out.txt");
 
-    rt().block_on(fs.write_file(&file_path, b"test data")).unwrap();
+    rt().block_on(fs.write_file(&file_path, b"test data"))
+        .unwrap();
     let content = std::fs::read(&file_path).unwrap();
     assert_eq!(content, b"test data");
 
@@ -157,8 +156,11 @@ fn test_dhash_hasher_returns_non_zero_for_image() {
         }
     }
     let mut bytes: Vec<u8> = Vec::new();
-    buf.write_to(&mut std::io::Cursor::new(&mut bytes), image::ImageFormat::Png)
-        .unwrap();
+    buf.write_to(
+        &mut std::io::Cursor::new(&mut bytes),
+        image::ImageFormat::Png,
+    )
+    .unwrap();
 
     let hasher = DHashHasher::new();
     let hash = hasher.compute_dhash(&bytes).unwrap();

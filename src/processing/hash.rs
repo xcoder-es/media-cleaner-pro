@@ -40,5 +40,5 @@ pub fn compute_dhash(img: &DynamicImage) -> u64 {
     hash
 }
 
-pub use mc_core::hamming_distance;
 pub use mc_core::format_dhash;
+pub use mc_core::hamming_distance;

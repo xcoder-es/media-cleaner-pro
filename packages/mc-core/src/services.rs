@@ -3,13 +3,24 @@ use crate::domain::*;
 pub struct StageProcessor;
 
 impl StageProcessor {
-    pub fn exact_duplicate(meta: &ImageMetadata, seen_hashes: &std::collections::HashSet<String>) -> StageResult {
+    pub fn exact_duplicate(
+        meta: &ImageMetadata,
+        seen_hashes: &std::collections::HashSet<String>,
+    ) -> StageResult {
         let is_duplicate = seen_hashes.contains(&meta.sha256);
         StageResult {
             stage_name: "Exact Duplicate Removal".to_string(),
             passed: !is_duplicate,
-            destination: if is_duplicate { Some("duplicates/exact".to_string()) } else { None },
-            reason: if is_duplicate { Some(format!("SHA-256 match: {}", &meta.sha256[..16])) } else { None },
+            destination: if is_duplicate {
+                Some("duplicates/exact".to_string())
+            } else {
+                None
+            },
+            reason: if is_duplicate {
+                Some(format!("SHA-256 match: {}", &meta.sha256[..16]))
+            } else {
+                None
+            },
             score: None,
             category: None,
         }
@@ -20,8 +31,19 @@ impl StageProcessor {
         StageResult {
             stage_name: "Perceptual Duplicate Removal".to_string(),
             passed: !is_duplicate,
-            destination: if is_duplicate { Some("duplicates/perceptual".to_string()) } else { None },
-            reason: if is_duplicate { Some(format!("dHash match with {} file(s)", duplicate_paths.len())) } else { None },
+            destination: if is_duplicate {
+                Some("duplicates/perceptual".to_string())
+            } else {
+                None
+            },
+            reason: if is_duplicate {
+                Some(format!(
+                    "dHash match with {} file(s)",
+                    duplicate_paths.len()
+                ))
+            } else {
+                None
+            },
             score: None,
             category: None,
         }
@@ -32,8 +54,19 @@ impl StageProcessor {
         StageResult {
             stage_name: "Tiny Image Detection".to_string(),
             passed: !is_tiny,
-            destination: if is_tiny { Some("rejected/tiny".to_string()) } else { None },
-            reason: if is_tiny { Some(format!("{}x{} below threshold {}x{}", meta.width, meta.height, min_width, min_height)) } else { None },
+            destination: if is_tiny {
+                Some("rejected/tiny".to_string())
+            } else {
+                None
+            },
+            reason: if is_tiny {
+                Some(format!(
+                    "{}x{} below threshold {}x{}",
+                    meta.width, meta.height, min_width, min_height
+                ))
+            } else {
+                None
+            },
             score: None,
             category: None,
         }
@@ -41,17 +74,29 @@ impl StageProcessor {
 
     pub fn icon_detection(meta: &ImageMetadata) -> StageResult {
         let aspect = meta.width as f32 / meta.height.max(1) as f32;
-        let is_square = aspect >= 0.9 && aspect <= 1.1;
+        let is_square = (0.9..=1.1).contains(&aspect);
         let is_small = meta.width <= 256 && meta.height <= 256;
         let is_icon = is_square && is_small;
 
         StageResult {
             stage_name: "Icon Detection".to_string(),
             passed: !is_icon,
-            destination: if is_icon { Some("categories/icons".to_string()) } else { None },
-            reason: if is_icon { Some(format!("Square icon {}x{}", meta.width, meta.height)) } else { None },
+            destination: if is_icon {
+                Some("categories/icons".to_string())
+            } else {
+                None
+            },
+            reason: if is_icon {
+                Some(format!("Square icon {}x{}", meta.width, meta.height))
+            } else {
+                None
+            },
             score: if is_icon { Some(0.95) } else { Some(0.1) },
-            category: if is_icon { Some("icon".to_string()) } else { None },
+            category: if is_icon {
+                Some("icon".to_string())
+            } else {
+                None
+            },
         }
     }
 
@@ -65,19 +110,43 @@ impl StageProcessor {
         StageResult {
             stage_name: "Thumbnail Detection".to_string(),
             passed: !is_thumbnail,
-            destination: if is_thumbnail { Some("categories/thumbnails".to_string()) } else { None },
-            reason: if is_thumbnail { Some("Thumbnail pattern detected".to_string()) } else { None },
+            destination: if is_thumbnail {
+                Some("categories/thumbnails".to_string())
+            } else {
+                None
+            },
+            reason: if is_thumbnail {
+                Some("Thumbnail pattern detected".to_string())
+            } else {
+                None
+            },
             score: if is_thumbnail { Some(0.9) } else { Some(0.1) },
-            category: if is_thumbnail { Some("thumbnail".to_string()) } else { None },
+            category: if is_thumbnail {
+                Some("thumbnail".to_string())
+            } else {
+                None
+            },
         }
     }
 
     pub fn screenshot_detection(meta: &ImageMetadata) -> StageResult {
         let common_resolutions = [
-            (1920, 1080), (1366, 768), (1440, 900), (1536, 864),
-            (1280, 720), (1600, 900), (2560, 1440), (3840, 2160),
-            (1280, 1024), (1024, 768), (1680, 1050), (1920, 1200),
-            (1440, 960), (2560, 1600), (2880, 1800), (3024, 1964),
+            (1920, 1080),
+            (1366, 768),
+            (1440, 900),
+            (1536, 864),
+            (1280, 720),
+            (1600, 900),
+            (2560, 1440),
+            (3840, 2160),
+            (1280, 1024),
+            (1024, 768),
+            (1680, 1050),
+            (1920, 1200),
+            (1440, 960),
+            (2560, 1600),
+            (2880, 1800),
+            (3024, 1964),
         ];
 
         let is_common_res = common_resolutions.iter().any(|(w, h)| {
@@ -85,56 +154,109 @@ impl StageProcessor {
         });
 
         let name_lower = meta.filename.to_lowercase();
-        let has_screenshot_name = name_lower.contains("screenshot") || name_lower.contains("screen shot") || name_lower.contains("screencapture");
+        let has_screenshot_name = name_lower.contains("screenshot")
+            || name_lower.contains("screen shot")
+            || name_lower.contains("screencapture");
 
         let is_screenshot = is_common_res || has_screenshot_name;
 
         StageResult {
             stage_name: "Screenshot Detection".to_string(),
             passed: !is_screenshot,
-            destination: if is_screenshot { Some("categories/screenshots".to_string()) } else { None },
-            reason: if is_screenshot { Some(format!("Screenshot: {}x{}", meta.width, meta.height)) } else { None },
-            score: if is_screenshot { Some(0.92) } else { Some(0.05) },
-            category: if is_screenshot { Some("screenshot".to_string()) } else { None },
+            destination: if is_screenshot {
+                Some("categories/screenshots".to_string())
+            } else {
+                None
+            },
+            reason: if is_screenshot {
+                Some(format!("Screenshot: {}x{}", meta.width, meta.height))
+            } else {
+                None
+            },
+            score: if is_screenshot {
+                Some(0.92)
+            } else {
+                Some(0.05)
+            },
+            category: if is_screenshot {
+                Some("screenshot".to_string())
+            } else {
+                None
+            },
         }
     }
 
     pub fn wallpaper_detection(meta: &ImageMetadata) -> StageResult {
         let aspect = meta.width as f32 / meta.height.max(1) as f32;
-        let is_ultrawide = aspect >= 1.8 && aspect <= 3.5;
+        let is_ultrawide = (1.8..=3.5).contains(&aspect);
         let is_4k = meta.width >= 3840 || meta.height >= 2160;
         let is_wallpaper = is_ultrawide || (is_4k && aspect >= 1.5);
 
         StageResult {
             stage_name: "Wallpaper Detection".to_string(),
             passed: !is_wallpaper,
-            destination: if is_wallpaper { Some("categories/wallpapers".to_string()) } else { None },
-            reason: if is_wallpaper { Some(format!("Wallpaper aspect {}x{} (ratio {:.2})", meta.width, meta.height, aspect)) } else { None },
+            destination: if is_wallpaper {
+                Some("categories/wallpapers".to_string())
+            } else {
+                None
+            },
+            reason: if is_wallpaper {
+                Some(format!(
+                    "Wallpaper aspect {}x{} (ratio {:.2})",
+                    meta.width, meta.height, aspect
+                ))
+            } else {
+                None
+            },
             score: if is_wallpaper { Some(0.88) } else { Some(0.05) },
-            category: if is_wallpaper { Some("wallpaper".to_string()) } else { None },
+            category: if is_wallpaper {
+                Some("wallpaper".to_string())
+            } else {
+                None
+            },
         }
     }
 
     pub fn document_detection(meta: &ImageMetadata) -> StageResult {
         let aspect = meta.width as f32 / meta.height.max(1) as f32;
         let paper_ratios = [1.414, 1.294, 1.545, 1.0];
-        let is_paper_ratio = paper_ratios.iter().any(|r| (aspect - *r).abs() < 0.15 || ((1.0/aspect) - *r).abs() < 0.15);
+        let is_paper_ratio = paper_ratios
+            .iter()
+            .any(|r| (aspect - *r).abs() < 0.15 || ((1.0 / aspect) - *r).abs() < 0.15);
         let is_high_res = meta.width >= 1200;
         let is_document = is_paper_ratio && is_high_res;
 
         StageResult {
             stage_name: "Document Detection".to_string(),
             passed: !is_document,
-            destination: if is_document { Some("categories/documents".to_string()) } else { None },
-            reason: if is_document { Some(format!("Document ratio {:.2} at {}x{}", aspect, meta.width, meta.height)) } else { None },
+            destination: if is_document {
+                Some("categories/documents".to_string())
+            } else {
+                None
+            },
+            reason: if is_document {
+                Some(format!(
+                    "Document ratio {:.2} at {}x{}",
+                    aspect, meta.width, meta.height
+                ))
+            } else {
+                None
+            },
             score: if is_document { Some(0.85) } else { Some(0.1) },
-            category: if is_document { Some("document".to_string()) } else { None },
+            category: if is_document {
+                Some("document".to_string())
+            } else {
+                None
+            },
         }
     }
 
     pub fn ai_classification(meta: &ImageMetadata) -> StageResult {
         let categories = Self::classify_image(meta);
-        let primary = categories.first().cloned().unwrap_or_else(|| "uncategorized".to_string());
+        let primary = categories
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "uncategorized".to_string());
 
         StageResult {
             stage_name: "AI Classification".to_string(),

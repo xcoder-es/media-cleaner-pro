@@ -1,4 +1,4 @@
-use super::{AppState, StageStatus, LogMessage};
+use super::{AppState, LogMessage, StageStatus};
 use chrono::Utc;
 
 pub struct StateMachine;
@@ -21,7 +21,9 @@ impl StateMachine {
     }
 
     pub fn start_stage(state: &mut AppState, stage_idx: usize) {
-        let stage_name = state.stages.get(stage_idx)
+        let stage_name = state
+            .stages
+            .get(stage_idx)
             .map(|s| s.name.clone())
             .unwrap_or_default();
         if let Some(stage) = state.stages.get_mut(stage_idx) {
@@ -31,7 +33,12 @@ impl StateMachine {
         Self::log(state, &stage_name, format!("Stage started: {}", stage_name));
     }
 
-    pub fn update_stage_progress(state: &mut AppState, stage_idx: usize, processed: usize, total: usize) {
+    pub fn update_stage_progress(
+        state: &mut AppState,
+        stage_idx: usize,
+        processed: usize,
+        total: usize,
+    ) {
         if let Some(stage) = state.stages.get_mut(stage_idx) {
             stage.processed = processed;
             stage.total = total;
@@ -47,7 +54,9 @@ impl StateMachine {
     }
 
     pub fn complete_stage(state: &mut AppState, stage_idx: usize) {
-        let stage_name = state.stages.get(stage_idx)
+        let stage_name = state
+            .stages
+            .get(stage_idx)
             .map(|s| s.name.clone())
             .unwrap_or_default();
         if let Some(stage) = state.stages.get_mut(stage_idx) {
@@ -55,18 +64,28 @@ impl StateMachine {
             stage.progress = 100.0;
             stage.completed_at = Some(Utc::now().to_rfc3339());
         }
-        Self::log(state, &stage_name, format!("Stage completed: {}", stage_name));
+        Self::log(
+            state,
+            &stage_name,
+            format!("Stage completed: {}", stage_name),
+        );
     }
 
     pub fn fail_stage(state: &mut AppState, stage_idx: usize, error: String) {
-        let stage_name = state.stages.get(stage_idx)
+        let stage_name = state
+            .stages
+            .get(stage_idx)
             .map(|s| s.name.clone())
             .unwrap_or_default();
         if let Some(stage) = state.stages.get_mut(stage_idx) {
             stage.status = StageStatus::Failed;
             stage.error = Some(error.clone());
         }
-        Self::log(state, &stage_name, format!("Stage failed: {} - {}", stage_name, error));
+        Self::log(
+            state,
+            &stage_name,
+            format!("Stage failed: {} - {}", stage_name, error),
+        );
     }
 
     pub fn complete_job(state: &mut AppState) {

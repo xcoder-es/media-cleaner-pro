@@ -224,7 +224,8 @@ poll();
 </script>
 </body>
 </html>"#;
-    std::fs::write(dist.join("index.html"), placeholder).expect("failed to write placeholder index.html");
+    std::fs::write(dist.join("index.html"), placeholder)
+        .expect("failed to write placeholder index.html");
     eprintln!("---");
     eprintln!("  frontend/dist/ not found — using embedded placeholder UI");
     eprintln!("  Run 'cd frontend && npm install && npm run build' for the full UI");
