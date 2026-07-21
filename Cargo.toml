@@ -18,6 +18,7 @@ members = [
 # Async runtime
 tokio = { version = "1.38", features = ["full"] }
 tokio-stream = "0.1"
+tokio-util = "0.7"
 
 # Web framework
 axum = { version = "0.7", features = ["ws"] }
