@@ -126,7 +126,7 @@ footer{margin-top:auto;padding:1.5rem;text-align:center;font-size:.75rem;color:v
 </div>
 </div>
 
-<footer>MediaCleaner Pro v2.0.0 — Built with Rust</footer>
+<footer>MediaCleaner Pro v__VERSION__ — Built with Rust</footer>
 
 <script>
 const API = '';
@@ -224,6 +224,7 @@ poll();
 </script>
 </body>
 </html>"#;
+    let placeholder = placeholder.replace("__VERSION__", env!("CARGO_PKG_VERSION"));
     std::fs::write(dist.join("index.html"), placeholder)
         .expect("failed to write placeholder index.html");
     eprintln!("---");

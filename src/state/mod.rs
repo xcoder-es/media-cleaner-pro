@@ -23,6 +23,7 @@ pub struct AppState {
     pub log_messages: Vec<LogMessage>,
     pub config: crate::config::Config,
     pub ctx: Arc<AppContext>,
+    pub job_started_at: Option<i64>,
 }
 
 impl AppState {
@@ -174,6 +175,7 @@ impl AppState {
                 image_decoder,
                 notifier,
             }),
+            job_started_at: None,
         }
     }
 }
