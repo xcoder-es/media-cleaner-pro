@@ -44,7 +44,7 @@ pub fn create_routes(state: Arc<RwLock<AppState>>) -> Router {
     info(
         title = "MediaCleaner Pro API",
         description = "REST API for MediaCleaner Pro — perceptual duplicate image removal pipeline",
-        version = "0.1.3-alpha",
+        version = "0.1.4-alpha",
         license(name = "MIT")
     ),
     tags(
@@ -340,9 +340,21 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         }
     };
 
-    // Count files and collect paths
+    // Stage 0: Scan + Hash + Exact Duplicate Removal (combined so progress shows immediately)
+    {
+        let mut s = state.write().await;
+        s.stats.unique_count = 0;
+        s.stats.duplicate_count = 0;
+        s.stats.error_count = 0;
+        StateMachine::start_stage(&mut s, 0);
+    }
+
+    // Collect paths + count files
     let mut image_paths = Vec::new();
     for entry in WalkDir::new(&source_dir).into_iter().filter_map(|e| e.ok()) {
+        if !check_control().await {
+            return;
+        }
         if is_image_file(entry.path()) {
             image_paths.push(entry.path().to_path_buf());
         }
@@ -351,13 +363,12 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
 
     {
         let mut s = state.write().await;
-        s.stats.unique_count = 0;
-        s.stats.duplicate_count = 0;
-        s.stats.error_count = 0;
         for stage in &mut s.stages {
             stage.total = total;
         }
     }
+
+    let start_time = Instant::now();
 
     // Pre-compute metadata for all images (read once, hash, decode)
     let mut image_metas: Vec<Option<ImageMetadata>> = Vec::with_capacity(total);
@@ -423,10 +434,14 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
             format,
         }));
 
-        if idx % 10 == 0 || idx + 1 == total {
+        let processed = idx + 1;
+        if processed % 10 == 0 || processed == total {
             let mut s = state.write().await;
-            s.stats.speed = 0.0;
-            s.stats.eta_seconds = 0;
+            StateMachine::update_stage_progress(&mut s, 0, processed, total);
+            let elapsed = start_time.elapsed().as_secs_f64().max(0.001);
+            s.stats.speed = processed as f64 / elapsed;
+            s.stats.eta_seconds =
+                (total.saturating_sub(processed) as f64 / s.stats.speed.max(0.1)) as u64;
         }
     }
 
@@ -434,27 +449,17 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
     let mut results_map: std::collections::HashMap<String, Vec<StageResult>> =
         std::collections::HashMap::new();
 
-    // Stage 0: Exact Duplicate Removal
-    {
-        let mut s = state.write().await;
-        StateMachine::start_stage(&mut s, 0);
-    }
-
+    // Hash comparison (fast, remaining portion of stage 0)
     let mut seen_hashes = HashSet::new();
-    let mut processed = 0;
-    let start_time = Instant::now();
 
-    for meta_opt in &image_metas {
+    for (processed, meta_opt) in image_metas.iter().enumerate() {
         if !check_control().await {
             return;
         }
 
         let meta = match meta_opt {
             Some(m) => m,
-            None => {
-                processed += 1;
-                continue;
-            }
+            None => continue,
         };
 
         {
@@ -474,16 +479,13 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
             s.stats.duplicate_count += 1;
         }
 
-        processed += 1;
-        if processed % 10 == 0 || processed == total {
+        if processed % 100 == 0 || processed + 1 == total {
             let mut s = state.write().await;
-            StateMachine::update_stage_progress(&mut s, 0, processed, total);
-            let elapsed = start_time.elapsed().as_secs_f64();
-            if elapsed > 0.0 {
-                s.stats.speed = processed as f64 / elapsed;
-                s.stats.eta_seconds =
-                    (total.saturating_sub(processed) as f64 / s.stats.speed.max(0.1)) as u64;
-            }
+            StateMachine::update_stage_progress(&mut s, 0, processed + 1, total);
+            let elapsed = start_time.elapsed().as_secs_f64().max(0.001);
+            s.stats.speed = processed as f64 / elapsed;
+            s.stats.eta_seconds =
+                (total.saturating_sub(processed) as f64 / s.stats.speed.max(0.1)) as u64;
         }
     }
 
