@@ -20,6 +20,12 @@ impl InMemoryNotifier {
     }
 }
 
+impl Default for InMemoryNotifier {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NotificationBus for InMemoryNotifier {
     fn broadcast(&self, event: &PipelineEvent) {
         let mut subs = self.subscribers.lock().unwrap();

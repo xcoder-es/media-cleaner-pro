@@ -74,7 +74,7 @@ impl StageProcessor {
 
     pub fn icon_detection(meta: &ImageMetadata) -> StageResult {
         let aspect = meta.width as f32 / meta.height.max(1) as f32;
-        let is_square = aspect >= 0.9 && aspect <= 1.1;
+        let is_square = (0.9..=1.1).contains(&aspect);
         let is_small = meta.width <= 256 && meta.height <= 256;
         let is_icon = is_square && is_small;
 
@@ -188,7 +188,7 @@ impl StageProcessor {
 
     pub fn wallpaper_detection(meta: &ImageMetadata) -> StageResult {
         let aspect = meta.width as f32 / meta.height.max(1) as f32;
-        let is_ultrawide = aspect >= 1.8 && aspect <= 3.5;
+        let is_ultrawide = (1.8..=3.5).contains(&aspect);
         let is_4k = meta.width >= 3840 || meta.height >= 2160;
         let is_wallpaper = is_ultrawide || (is_4k && aspect >= 1.5);
 

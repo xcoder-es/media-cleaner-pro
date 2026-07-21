@@ -93,49 +93,45 @@ async fn browse_directory(Query(params): Query<HashMap<String, String>>) -> Json
         "jpg", "jpeg", "png", "bmp", "webp", "gif", "tiff", "tif", "heic", "heif",
     ];
 
-    match std::fs::read_dir(dir) {
-        Ok(rd) => {
-            for entry in rd.flatten() {
-                let name = entry.file_name().to_string_lossy().to_string();
-                let path = entry.path().to_string_lossy().to_string();
-                let is_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
+    if let Ok(rd) = std::fs::read_dir(dir) {
+        for entry in rd.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            let path = entry.path().to_string_lossy().to_string();
+            let is_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
 
-                let image_count = if is_dir {
-                    std::fs::read_dir(entry.path())
-                        .map(|rd| {
-                            rd.flatten()
-                                .filter(|e| {
-                                    e.file_type().map(|t| t.is_file()).unwrap_or(false)
-                                        && e.path()
-                                            .extension()
-                                            .and_then(|e| e.to_str())
-                                            .map(|e| {
-                                                image_extensions
-                                                    .contains(&e.to_lowercase().as_str())
-                                            })
-                                            .unwrap_or(false)
-                                })
-                                .count()
-                        })
-                        .unwrap_or(0)
-                } else {
-                    0
-                };
+            let image_count = if is_dir {
+                std::fs::read_dir(entry.path())
+                    .map(|rd| {
+                        rd.flatten()
+                            .filter(|e| {
+                                e.file_type().map(|t| t.is_file()).unwrap_or(false)
+                                    && e.path()
+                                        .extension()
+                                        .and_then(|e| e.to_str())
+                                        .map(|e| {
+                                            image_extensions.contains(&e.to_lowercase().as_str())
+                                        })
+                                        .unwrap_or(false)
+                            })
+                            .count()
+                    })
+                    .unwrap_or(0)
+            } else {
+                0
+            };
 
-                if is_dir {
-                    entries.push(DirEntry {
-                        name,
-                        path,
-                        is_dir: true,
-                        image_count,
-                    });
-                }
+            if is_dir {
+                entries.push(DirEntry {
+                    name,
+                    path,
+                    is_dir: true,
+                    image_count,
+                });
             }
         }
-        Err(_) => {}
     }
 
-    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    entries.sort_by_key(|a| a.name.to_lowercase());
     Json(entries)
 }
 
@@ -571,7 +567,7 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         &image_metas,
         total,
         &check_control,
-        |meta| StageProcessor::icon_detection(meta),
+        StageProcessor::icon_detection,
     )
     .await
     {
@@ -585,7 +581,7 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         &image_metas,
         total,
         &check_control,
-        |meta| StageProcessor::thumbnail_detection(meta),
+        StageProcessor::thumbnail_detection,
     )
     .await
     {
@@ -599,7 +595,7 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         &image_metas,
         total,
         &check_control,
-        |meta| StageProcessor::screenshot_detection(meta),
+        StageProcessor::screenshot_detection,
     )
     .await
     {
@@ -613,7 +609,7 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         &image_metas,
         total,
         &check_control,
-        |meta| StageProcessor::wallpaper_detection(meta),
+        StageProcessor::wallpaper_detection,
     )
     .await
     {
@@ -627,7 +623,7 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         &image_metas,
         total,
         &check_control,
-        |meta| StageProcessor::document_detection(meta),
+        StageProcessor::document_detection,
     )
     .await
     {
@@ -641,7 +637,7 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         &image_metas,
         total,
         &check_control,
-        |meta| StageProcessor::ai_classification(meta),
+        StageProcessor::ai_classification,
     )
     .await
     {
@@ -655,7 +651,7 @@ pub(crate) async fn run_pipeline(state: Arc<RwLock<AppState>>) {
         &image_metas,
         total,
         &check_control,
-        |meta| StageProcessor::quality_ranking(meta),
+        StageProcessor::quality_ranking,
     )
     .await
     {

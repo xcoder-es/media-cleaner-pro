@@ -11,6 +11,12 @@ impl Sha256Hasher {
     }
 }
 
+impl Default for Sha256Hasher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ExactHasher for Sha256Hasher {
     fn compute_sha256(&self, data: &[u8]) -> Result<String, DomainError> {
         let hash = Sha256::digest(data);
@@ -23,6 +29,12 @@ pub struct DHashHasher;
 impl DHashHasher {
     pub fn new() -> Self {
         DHashHasher
+    }
+}
+
+impl Default for DHashHasher {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
