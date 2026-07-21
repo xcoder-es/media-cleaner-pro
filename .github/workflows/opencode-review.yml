@@ -52,10 +52,11 @@ jobs:
           REPO=${{ github.repository }}
 
           # The opencode action posts the review as an issue comment.
-          # Find it by the "## Review:" header, delete it, and re-post as formal PR review.
+          # Find the latest comment from github-actions bot with a review header,
+          # delete it, and re-post as a formal PR review.
           sleep 5
           COMMENT=$(gh api "/repos/$REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[-1] | select(.body | startswith("## Review:"))')
+            --jq '[.[] | select(.user.login == "github-actions")] | last | select(.body | startswith("## Review:"))')
           BODY=$(echo "$COMMENT" | jq -r '.body // empty')
           COMMENT_ID=$(echo "$COMMENT" | jq -r '.id // empty')
 

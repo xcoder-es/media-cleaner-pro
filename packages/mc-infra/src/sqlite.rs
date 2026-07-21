@@ -25,6 +25,9 @@ impl SqliteJobRepo {
     }
 
     fn map_job_row(row: &rusqlite::Row) -> rusqlite::Result<Job> {
+        // Returns rusqlite::Result because stmt.query_map requires it.
+        // Non-rusqlite errors (serde, chrono) are converted via
+        // ToSqlConversionFailure, then unwrapped to DomainError by callers.
         let id_str: String = row.get(0)?;
         let config_str: String = row.get(5)?;
         let stages_str: String = row.get(6)?;
@@ -276,26 +279,33 @@ impl JobRepository for SqliteJobRepo {
     }
 
     async fn delete_job(&self, id: &JobId) -> Result<(), DomainError> {
-        let conn = self
+        let mut conn = self
             .conn
             .lock()
             .map_err(|e| DomainError::StorageError(format!("lock error: {}", e)))?;
 
+        let tx = conn
+            .transaction()
+            .map_err(|e| DomainError::StorageError(format!("begin tx: {}", e)))?;
+
         let id_str = id.as_ref();
-        conn.execute(
+        tx.execute(
             "DELETE FROM duplicates WHERE job_id = ?1",
             rusqlite::params![id_str],
         )
         .map_err(|e| DomainError::StorageError(format!("delete duplicates: {}", e)))?;
 
-        conn.execute(
+        tx.execute(
             "DELETE FROM images WHERE job_id = ?1",
             rusqlite::params![id_str],
         )
         .map_err(|e| DomainError::StorageError(format!("delete images: {}", e)))?;
 
-        conn.execute("DELETE FROM jobs WHERE id = ?1", rusqlite::params![id_str])
+        tx.execute("DELETE FROM jobs WHERE id = ?1", rusqlite::params![id_str])
             .map_err(|e| DomainError::StorageError(format!("delete job: {}", e)))?;
+
+        tx.commit()
+            .map_err(|e| DomainError::StorageError(format!("commit tx: {}", e)))?;
 
         Ok(())
     }
